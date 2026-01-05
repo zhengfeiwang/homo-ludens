@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
@@ -129,7 +130,9 @@ def chat():
         history.add_message("assistant", response)
         storage.save_conversation(history)
 
-        console.print(f"\n[bold cyan]Companion:[/bold cyan] {response}\n")
+        console.print(f"\n[bold cyan]Companion:[/bold cyan]")
+        console.print(Markdown(response))
+        console.print()
 
 
 @app.command()
