@@ -21,7 +21,7 @@ from datetime import datetime
 
 import httpx
 
-from homo_ludens.models import Game, Platform
+from homo_ludens.models import Achievement, AchievementStats, Game, Platform
 
 STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_STORE_API = "https://store.steampowered.com/api"
@@ -190,6 +190,128 @@ class SteamClient:
                         continue
             except Exception:
                 pass
+
+        return game
+
+    def get_player_achievements(
+        self, app_id: int, steam_id: str | None = None
+    ) -> AchievementStats | None:
+        """Fetch player's achievements for a specific game.
+
+        Args:
+            app_id: Steam application ID.
+            steam_id: Steam ID to fetch achievements for.
+
+        Returns:
+            AchievementStats or None if game has no achievements.
+        """
+        steam_id = steam_id or self.steam_id
+        if not steam_id:
+            raise SteamAPIError("Steam ID not provided.")
+
+        url = f"{STEAM_API_BASE}/ISteamUserStats/GetPlayerAchievements/v1/"
+        params = {
+            "key": self.api_key,
+            "steamid": steam_id,
+            "appid": app_id,
+        }
+
+        try:
+            response = self._http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            return None
+
+        player_stats = data.get("playerstats", {})
+        if not player_stats.get("success", False):
+            return None
+
+        achievements_data = player_stats.get("achievements", [])
+        if not achievements_data:
+            return None
+
+        # Get global achievement percentages for rarity info
+        global_stats = self.get_global_achievement_stats(app_id)
+
+        achievements = []
+        unlocked_count = 0
+
+        for ach_data in achievements_data:
+            achieved = ach_data.get("achieved", 0) == 1
+            if achieved:
+                unlocked_count += 1
+
+            achievement = Achievement(
+                api_name=ach_data.get("apiname", ""),
+                name=ach_data.get("name"),
+                description=ach_data.get("description"),
+                achieved=achieved,
+                unlock_time=self._unix_to_datetime(ach_data.get("unlocktime")),
+                global_percent=global_stats.get(ach_data.get("apiname", "")),
+            )
+            achievements.append(achievement)
+
+        return AchievementStats(
+            total=len(achievements),
+            unlocked=unlocked_count,
+            achievements=achievements,
+        )
+
+    def get_global_achievement_stats(self, app_id: int) -> dict[str, float]:
+        """Fetch global achievement unlock percentages.
+
+        Args:
+            app_id: Steam application ID.
+
+        Returns:
+            Dict mapping achievement api_name to unlock percentage.
+        """
+        url = f"{STEAM_API_BASE}/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
+        params = {"gameid": app_id}
+
+        try:
+            response = self._http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            return {}
+
+        result = {}
+        achievements = (
+            data.get("achievementpercentages", {}).get("achievements", [])
+        )
+        for ach in achievements:
+            percent = ach.get("percent", 0)
+            if isinstance(percent, str):
+                try:
+                    percent = float(percent)
+                except ValueError:
+                    percent = 0.0
+            result[ach.get("name", "")] = round(percent, 2)
+
+        return result
+
+    def enrich_game_with_achievements(
+        self, game: Game, steam_id: str | None = None
+    ) -> Game:
+        """Add achievement stats to a game.
+
+        Args:
+            game: Game object to enrich.
+            steam_id: Steam ID to fetch achievements for.
+
+        Returns:
+            Game with achievement_stats populated.
+        """
+        if not game.id.startswith("steam_"):
+            return game
+
+        app_id = int(game.id.replace("steam_", ""))
+        achievement_stats = self.get_player_achievements(app_id, steam_id)
+
+        if achievement_stats:
+            game.achievement_stats = achievement_stats
 
         return game
 

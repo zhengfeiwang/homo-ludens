@@ -26,7 +26,15 @@ console = Console()
 
 
 @app.command()
-def sync():
+def sync(
+    achievements: bool = typer.Option(
+        False, "--achievements", "-a", help="Also fetch achievement data (slower)"
+    ),
+    min_playtime: int = typer.Option(
+        60, "--min-playtime", "-m", 
+        help="Only fetch achievements for games with at least this many minutes played"
+    ),
+):
     """Sync your Steam library."""
     storage = Storage()
     profile = storage.load_profile()
@@ -37,13 +45,35 @@ def sync():
         client = SteamClient()
         games = client.get_owned_games()
 
-        profile.games = games
-        profile.steam_id = client.steam_id
-        storage.save_profile(profile)
-
         console.print(
             f"[bold green]Success![/bold green] Synced {len(games)} games from Steam."
         )
+
+        # Fetch achievements if requested
+        if achievements:
+            played_games = [g for g in games if g.playtime_minutes >= min_playtime]
+            console.print(
+                f"\n[bold blue]Fetching achievements for {len(played_games)} games "
+                f"(with >= {min_playtime} min playtime)...[/bold blue]"
+            )
+            
+            with console.status("[dim]Fetching achievements...[/dim]") as status:
+                for i, game in enumerate(played_games):
+                    status.update(f"[dim]Fetching achievements... {i+1}/{len(played_games)} - {game.name}[/dim]")
+                    client.enrich_game_with_achievements(game)
+            
+            # Count games with achievements
+            games_with_achievements = [
+                g for g in games 
+                if g.achievement_stats and g.achievement_stats.total > 0
+            ]
+            console.print(
+                f"[green]Fetched achievements for {len(games_with_achievements)} games.[/green]"
+            )
+
+        profile.games = games
+        profile.steam_id = client.steam_id
+        storage.save_profile(profile)
 
         # Show top 5 by playtime
         top_games = sorted(games, key=lambda g: g.playtime_minutes, reverse=True)[:5]
@@ -51,7 +81,10 @@ def sync():
             console.print("\n[bold]Your most played games:[/bold]")
             for i, game in enumerate(top_games, 1):
                 hours = game.playtime_minutes // 60
-                console.print(f"  {i}. {game.name} ({hours}h)")
+                ach_str = ""
+                if game.achievement_stats and game.achievement_stats.total > 0:
+                    ach_str = f" - {game.achievement_stats.completion_percent}% achievements"
+                console.print(f"  {i}. {game.name} ({hours}h){ach_str}")
 
     except SteamAPIError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")

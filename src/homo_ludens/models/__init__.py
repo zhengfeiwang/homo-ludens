@@ -1,6 +1,8 @@
 """Data models for Homo Ludens."""
 
 from homo_ludens.models.game import (
+    Achievement,
+    AchievementStats,
     ConversationHistory,
     ConversationMessage,
     Game,
@@ -11,6 +13,8 @@ from homo_ludens.models.game import (
 )
 
 __all__ = [
+    "Achievement",
+    "AchievementStats",
     "ConversationHistory",
     "ConversationMessage",
     "Game",

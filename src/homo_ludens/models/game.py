@@ -15,6 +15,32 @@ class Platform(str, Enum):
     PC_OTHER = "pc_other"
 
 
+class Achievement(BaseModel):
+    """Represents a game achievement."""
+
+    api_name: str = Field(description="Internal achievement identifier")
+    name: str | None = None  # Display name (if available)
+    description: str | None = None
+    achieved: bool = False
+    unlock_time: datetime | None = None
+    global_percent: float | None = None  # % of players who unlocked this
+
+
+class AchievementStats(BaseModel):
+    """Achievement statistics for a game."""
+
+    total: int = 0
+    unlocked: int = 0
+    achievements: list[Achievement] = Field(default_factory=list)
+
+    @property
+    def completion_percent(self) -> float:
+        """Calculate completion percentage."""
+        if self.total == 0:
+            return 0.0
+        return round(self.unlocked / self.total * 100, 1)
+
+
 class Game(BaseModel):
     """Represents a game in the user's library."""
 
@@ -30,6 +56,9 @@ class Game(BaseModel):
     release_date: datetime | None = None
     description: str | None = None
     header_image_url: str | None = None
+
+    # Achievement data
+    achievement_stats: AchievementStats | None = None
 
 
 class PlaySession(BaseModel):
