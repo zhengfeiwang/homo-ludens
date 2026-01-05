@@ -61,6 +61,41 @@ class Game(BaseModel):
     achievement_stats: AchievementStats | None = None
 
 
+class PriceInfo(BaseModel):
+    """Price information for a game."""
+
+    currency: str = "USD"
+    initial_price: float = 0.0  # Original price
+    final_price: float = 0.0  # Current price (after discount)
+    discount_percent: int = 0
+    formatted: str | None = None  # e.g., "$3.99"
+
+
+class WishlistItem(BaseModel):
+    """A game on the user's wishlist."""
+
+    id: str = Field(description="Unique identifier (platform-specific)")
+    app_id: int = Field(description="Steam app ID")
+    name: str
+    added_on: datetime | None = None
+    priority: int = 0  # 0 = default, lower = higher priority
+    
+    # Metadata
+    genres: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    release_date: datetime | None = None
+    description: str | None = None
+    header_image_url: str | None = None
+    
+    # Price info
+    price: PriceInfo | None = None
+    
+    @property
+    def is_on_sale(self) -> bool:
+        """Check if the game is currently on sale."""
+        return self.price is not None and self.price.discount_percent > 0
+
+
 class PlaySession(BaseModel):
     """Represents a single play session."""
 
@@ -85,6 +120,7 @@ class UserProfile(BaseModel):
 
     steam_id: str | None = None
     games: list[Game] = Field(default_factory=list)
+    wishlist: list[WishlistItem] = Field(default_factory=list)
     play_history: list[PlaySession] = Field(default_factory=list)
     preferences: UserPreferences = Field(default_factory=UserPreferences)
     created_at: datetime = Field(default_factory=datetime.now)

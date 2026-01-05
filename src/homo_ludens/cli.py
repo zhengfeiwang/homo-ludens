@@ -29,7 +29,7 @@ DEFAULT_ACHIEVEMENT_MIN_PLAYTIME = 60
 
 
 def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEFAULT_ACHIEVEMENT_MIN_PLAYTIME):
-    """Refresh Steam library with achievements. Returns updated profile."""
+    """Refresh Steam library with achievements and wishlist. Returns updated profile."""
     console.print("[bold blue]Refreshing Steam library...[/bold blue]")
     
     try:
@@ -45,8 +45,17 @@ def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEF
                 status.update(f"[dim]{i+1}/{len(played_games)} - {game.name}[/dim]")
                 client.enrich_game_with_achievements(game)
         
+        # Fetch wishlist
+        console.print("[dim]Fetching wishlist...[/dim]")
+        wishlist_items = client.get_wishlist()
+        with console.status("[dim]Fetching wishlist details...[/dim]") as status:
+            for i, item in enumerate(wishlist_items):
+                status.update(f"[dim]{i+1}/{len(wishlist_items)}[/dim]")
+                client.enrich_wishlist_item(item)
+        
         profile = storage.load_profile()
         profile.games = games
+        profile.wishlist = wishlist_items
         profile.steam_id = client.steam_id
         storage.save_profile(profile)
         
@@ -54,9 +63,12 @@ def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEF
             g for g in games 
             if g.achievement_stats and g.achievement_stats.total > 0
         ]
+        on_sale = [item for item in wishlist_items if item.is_on_sale]
+        
         console.print(
             f"[bold green]Done![/bold green] {len(games)} games, "
-            f"{len(games_with_achievements)} with achievement data."
+            f"{len(games_with_achievements)} with achievements, "
+            f"{len(wishlist_items)} wishlist items ({len(on_sale)} on sale)."
         )
         return profile
         
@@ -81,6 +93,10 @@ def _show_status(console: Console, profile):
         console.print(f"  Playtime: {total_playtime // 60} hours")
         console.print(f"  Played: {played}/{len(profile.games)}")
         console.print(f"  With achievements: {games_with_ach}")
+    
+    if profile.wishlist:
+        on_sale = [item for item in profile.wishlist if item.is_on_sale]
+        console.print(f"  Wishlist: {len(profile.wishlist)} items ({len(on_sale)} on sale)")
 
 
 @app.command()
@@ -91,6 +107,9 @@ def sync(
     min_playtime: int = typer.Option(
         60, "--min-playtime", "-m", 
         help="Only fetch achievements for games with at least this many minutes played"
+    ),
+    wishlist: bool = typer.Option(
+        True, "--wishlist/--no-wishlist", "-w", help="Fetch wishlist with prices"
     ),
 ):
     """Sync your Steam library."""
@@ -129,7 +148,38 @@ def sync(
                 f"[green]Fetched achievements for {len(games_with_achievements)} games.[/green]"
             )
 
+        # Fetch wishlist
+        wishlist_items = []
+        if wishlist:
+            console.print("\n[bold blue]Fetching wishlist...[/bold blue]")
+            wishlist_items = client.get_wishlist()
+            
+            if wishlist_items:
+                with console.status("[dim]Fetching wishlist details and prices...[/dim]") as status:
+                    for i, item in enumerate(wishlist_items):
+                        status.update(f"[dim]{i+1}/{len(wishlist_items)} - App {item.app_id}[/dim]")
+                        client.enrich_wishlist_item(item)
+                
+                on_sale = [item for item in wishlist_items if item.is_on_sale]
+                console.print(
+                    f"[green]Fetched {len(wishlist_items)} wishlist items, "
+                    f"{len(on_sale)} on sale![/green]"
+                )
+                
+                # Show items on sale
+                if on_sale:
+                    console.print("\n[bold yellow]Games on sale:[/bold yellow]")
+                    for item in on_sale[:5]:
+                        if item.price:  # Type guard
+                            console.print(
+                                f"  - {item.name}: {item.price.formatted} "
+                                f"([green]-{item.price.discount_percent}%[/green])"
+                            )
+            else:
+                console.print("[dim]Wishlist is empty.[/dim]")
+
         profile.games = games
+        profile.wishlist = wishlist_items
         profile.steam_id = client.steam_id
         storage.save_profile(profile)
 
@@ -259,6 +309,11 @@ def status():
 
         played = len([g for g in profile.games if g.playtime_minutes > 0])
         console.print(f"Games played: {played}/{len(profile.games)}")
+
+    # Wishlist info
+    if profile.wishlist:
+        on_sale = [item for item in profile.wishlist if item.is_on_sale]
+        console.print(f"Wishlist items: {len(profile.wishlist)} ({len(on_sale)} on sale)")
 
     history = storage.load_conversation()
     console.print(f"Conversation messages: {len(history.messages)}")

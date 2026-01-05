@@ -8,8 +8,10 @@ from homo_ludens.models.game import (
     Game,
     Platform,
     PlaySession,
+    PriceInfo,
     UserPreferences,
     UserProfile,
+    WishlistItem,
 )
 
 __all__ = [
@@ -20,6 +22,8 @@ __all__ = [
     "Game",
     "Platform",
     "PlaySession",
+    "PriceInfo",
     "UserPreferences",
     "UserProfile",
+    "WishlistItem",
 ]

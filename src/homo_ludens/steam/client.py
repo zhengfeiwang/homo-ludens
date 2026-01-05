@@ -21,7 +21,7 @@ from datetime import datetime
 
 import httpx
 
-from homo_ludens.models import Achievement, AchievementStats, Game, Platform
+from homo_ludens.models import Achievement, AchievementStats, Game, Platform, PriceInfo, WishlistItem
 
 STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_STORE_API = "https://store.steampowered.com/api"
@@ -314,6 +314,125 @@ class SteamClient:
             game.achievement_stats = achievement_stats
 
         return game
+
+    def get_wishlist(self, steam_id: str | None = None) -> list[WishlistItem]:
+        """Fetch user's Steam wishlist.
+
+        Args:
+            steam_id: Steam ID to fetch wishlist for.
+
+        Returns:
+            List of WishlistItem objects.
+        """
+        steam_id = steam_id or self.steam_id
+        if not steam_id:
+            raise SteamAPIError("Steam ID not provided.")
+
+        url = f"{STEAM_API_BASE}/IWishlistService/GetWishlist/v1/"
+        params = {
+            "key": self.api_key,
+            "steamid": steam_id,
+        }
+
+        try:
+            response = self._http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            raise SteamAPIError(f"Failed to fetch wishlist: {e}")
+
+        items = []
+        for item_data in data.get("response", {}).get("items", []):
+            app_id = item_data.get("appid")
+            item = WishlistItem(
+                id=f"steam_{app_id}",
+                app_id=app_id,
+                name=f"Unknown ({app_id})",  # Will be enriched later
+                added_on=self._unix_to_datetime(item_data.get("date_added")),
+                priority=item_data.get("priority", 0),
+            )
+            items.append(item)
+
+        return items
+
+    def get_price_info(self, app_id: int, country_code: str = "us") -> PriceInfo | None:
+        """Fetch current price info for a game.
+
+        Args:
+            app_id: Steam application ID.
+            country_code: Country code for pricing (e.g., 'us', 'gb', 'cn').
+
+        Returns:
+            PriceInfo or None if not available (e.g., free games).
+        """
+        url = f"{STEAM_STORE_API}/appdetails"
+        params = {
+            "appids": app_id,
+            "cc": country_code,
+            "filters": "price_overview",
+        }
+
+        try:
+            response = self._http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            return None
+
+        app_data = data.get(str(app_id), {})
+        if not app_data.get("success"):
+            return None
+
+        price_data = app_data.get("data", {}).get("price_overview")
+        if not price_data:
+            return None
+
+        return PriceInfo(
+            currency=price_data.get("currency", "USD"),
+            initial_price=price_data.get("initial", 0) / 100,  # Convert cents to dollars
+            final_price=price_data.get("final", 0) / 100,
+            discount_percent=price_data.get("discount_percent", 0),
+            formatted=price_data.get("final_formatted"),
+        )
+
+    def enrich_wishlist_item(
+        self, item: WishlistItem, country_code: str = "us"
+    ) -> WishlistItem:
+        """Enrich a wishlist item with game details and price.
+
+        Args:
+            item: WishlistItem to enrich.
+            country_code: Country code for pricing.
+
+        Returns:
+            Enriched WishlistItem.
+        """
+        try:
+            # Get game details
+            details = self.get_game_details(item.app_id)
+            if details:
+                item.name = details.get("name", item.name)
+                item.description = details.get("short_description")
+                item.genres = [g["description"] for g in details.get("genres", [])]
+                item.header_image_url = details.get("header_image")
+
+                # Release date
+                release = details.get("release_date", {})
+                if release.get("date") and not release.get("coming_soon"):
+                    for fmt in ["%b %d, %Y", "%d %b, %Y", "%Y"]:
+                        try:
+                            item.release_date = datetime.strptime(release["date"], fmt)
+                            break
+                        except ValueError:
+                            continue
+
+            # Get price info
+            item.price = self.get_price_info(item.app_id, country_code)
+        except Exception:
+            # Silently skip enrichment failures - item will have partial data
+            pass
+
+        return item
 
     def _unix_to_datetime(self, timestamp: int | None) -> datetime | None:
         """Convert Unix timestamp to datetime."""

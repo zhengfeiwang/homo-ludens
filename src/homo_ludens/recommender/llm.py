@@ -11,7 +11,7 @@ SYSTEM_PROMPT = """You are a personal AI game companion called "Homo Ludens" (La
 Your role is to help the user choose the right game for the right moment based on their preferences,
 mood, available time, and gaming history.
 
-You have access to the user's game library, play history, and achievement data. Use this information to make
+You have access to the user's game library, play history, achievement data, and wishlist. Use this information to make
 personalized recommendations. Be conversational, friendly, and curious about their gaming preferences.
 
 When recommending games:
@@ -19,7 +19,8 @@ When recommending games:
 2. Consider their play history - games they've spent time on, recently played, or haven't touched
 3. Use achievement completion as a signal of engagement (high % = loved it, low % = might have dropped it)
 4. Suggest specific games from their library with brief reasons why
-5. Remember their preferences across conversations
+5. When suggesting new games to buy, consider their wishlist and current deals
+6. Remember their preferences across conversations
 
 Keep responses concise but helpful. You're a gaming buddy, not a formal assistant.
 """
@@ -115,7 +116,40 @@ Unplayed Games (backlog):
 {unplayed_str}
 
 {prefs_str if prefs_str else "No preference data yet."}
+{_build_wishlist_context(profile)}
 """
+
+
+def _build_wishlist_context(profile: UserProfile) -> str:
+    """Build wishlist section of context."""
+    if not profile.wishlist:
+        return ""
+    
+    # Games on sale
+    on_sale = [item for item in profile.wishlist if item.is_on_sale]
+    on_sale_str = ""
+    if on_sale:
+        on_sale_str = "WISHLIST - ON SALE:\n" + "\n".join(
+            f"  - {item.name}: {item.price.formatted} (-{item.price.discount_percent}%)"
+            + (f" - {', '.join(item.genres[:2])}" if item.genres else "")
+            for item in on_sale[:10]
+            if item.price
+        )
+    
+    # Other wishlist items
+    not_on_sale = [item for item in profile.wishlist if not item.is_on_sale][:5]
+    other_str = ""
+    if not_on_sale:
+        other_str = "\nWISHLIST - OTHER ITEMS:\n" + "\n".join(
+            f"  - {item.name}"
+            + (f": {item.price.formatted}" if item.price else "")
+            + (f" - {', '.join(item.genres[:2])}" if item.genres else "")
+            for item in not_on_sale
+        )
+    
+    if on_sale_str or other_str:
+        return f"\n{on_sale_str}{other_str}"
+    return ""
 
 
 class Recommender:
