@@ -24,6 +24,64 @@ app = typer.Typer(
 )
 console = Console()
 
+# Default minimum playtime for achievement fetching (in minutes)
+DEFAULT_ACHIEVEMENT_MIN_PLAYTIME = 60
+
+
+def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEFAULT_ACHIEVEMENT_MIN_PLAYTIME):
+    """Refresh Steam library with achievements. Returns updated profile."""
+    console.print("[bold blue]Refreshing Steam library...[/bold blue]")
+    
+    try:
+        client = SteamClient()
+        games = client.get_owned_games()
+        
+        # Fetch achievements for played games
+        played_games = [g for g in games if g.playtime_minutes >= min_playtime]
+        console.print(f"[dim]Fetching achievements for {len(played_games)} games...[/dim]")
+        
+        with console.status("[dim]Fetching achievements...[/dim]") as status:
+            for i, game in enumerate(played_games):
+                status.update(f"[dim]{i+1}/{len(played_games)} - {game.name}[/dim]")
+                client.enrich_game_with_achievements(game)
+        
+        profile = storage.load_profile()
+        profile.games = games
+        profile.steam_id = client.steam_id
+        storage.save_profile(profile)
+        
+        games_with_achievements = [
+            g for g in games 
+            if g.achievement_stats and g.achievement_stats.total > 0
+        ]
+        console.print(
+            f"[bold green]Done![/bold green] {len(games)} games, "
+            f"{len(games_with_achievements)} with achievement data."
+        )
+        return profile
+        
+    except SteamAPIError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        return storage.load_profile()
+
+
+def _show_status(console: Console, profile):
+    """Show library status inline."""
+    console.print("[bold]Library Status:[/bold]")
+    console.print(f"  Games: {len(profile.games)}")
+    
+    if profile.games:
+        total_playtime = sum(g.playtime_minutes for g in profile.games)
+        played = len([g for g in profile.games if g.playtime_minutes > 0])
+        games_with_ach = len([
+            g for g in profile.games 
+            if g.achievement_stats and g.achievement_stats.total > 0
+        ])
+        
+        console.print(f"  Playtime: {total_playtime // 60} hours")
+        console.print(f"  Played: {played}/{len(profile.games)}")
+        console.print(f"  With achievements: {games_with_ach}")
+
 
 @app.command()
 def sync(
@@ -114,7 +172,9 @@ def chat():
         Panel(
             "[bold]Homo Ludens[/bold] - Your AI Game Companion\n"
             "Type 'quit' or 'exit' to end the conversation.\n"
-            "Type 'clear' to clear conversation history.",
+            "Type 'clear' to clear conversation history.\n"
+            "Type '/refresh' to sync latest Steam data.\n"
+            "Type '/status' to view library stats.",
             style="blue",
         )
     )
@@ -148,6 +208,16 @@ def chat():
             storage.clear_conversation()
             history = storage.load_conversation()
             console.print("[dim]Conversation cleared.[/dim]\n")
+            continue
+
+        if user_input.lower() == "/refresh":
+            profile = _refresh_library(console, storage)
+            console.print()
+            continue
+
+        if user_input.lower() == "/status":
+            _show_status(console, profile)
+            console.print()
             continue
 
         # Get response from LLM
