@@ -1,6 +1,9 @@
 """CLI interface for Homo Ludens."""
 
+from pathlib import Path
+
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -8,6 +11,10 @@ from rich.prompt import Prompt
 from homo_ludens.recommender import Recommender
 from homo_ludens.steam import SteamAPIError, SteamClient
 from homo_ludens.storage import Storage
+
+# Load .env file from project root
+_env_file = Path(__file__).parent.parent.parent.parent / ".env"
+load_dotenv(_env_file)
 
 app = typer.Typer(
     name="homo-ludens",
