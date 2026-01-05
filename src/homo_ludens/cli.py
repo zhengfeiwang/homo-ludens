@@ -12,9 +12,9 @@ from homo_ludens.recommender import Recommender
 from homo_ludens.steam import SteamAPIError, SteamClient
 from homo_ludens.storage import Storage
 
-# Load .env file from project root
-_env_file = Path(__file__).parent.parent.parent.parent / ".env"
-load_dotenv(_env_file)
+# Load .env file - try current directory, then home directory
+load_dotenv(Path.cwd() / ".env")
+load_dotenv(Path.home() / ".homo_ludens" / ".env")
 
 app = typer.Typer(
     name="homo-ludens",
