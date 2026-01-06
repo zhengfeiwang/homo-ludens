@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import markdown
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,6 +14,14 @@ from homo_ludens.web.routes import dashboard, library, chat, settings
 WEB_DIR = Path(__file__).parent
 TEMPLATES_DIR = WEB_DIR / "templates"
 STATIC_DIR = WEB_DIR / "static"
+
+
+def render_markdown(text: str) -> str:
+    """Convert markdown text to HTML."""
+    return markdown.markdown(
+        text,
+        extensions=["fenced_code", "tables", "nl2br"],
+    )
 
 
 def create_app() -> FastAPI:
@@ -27,6 +36,9 @@ def create_app() -> FastAPI:
 
     # Set up templates
     templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+    # Register custom filters
+    templates.env.filters["markdown"] = render_markdown
 
     # Store templates and storage in app state for access in routes
     app.state.templates = templates

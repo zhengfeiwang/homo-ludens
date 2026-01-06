@@ -28,7 +28,11 @@
                 {% for msg in messages %}
                 <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
                     <div class="{% if msg.role == 'user' %}bg-blue-600{% else %}bg-gray-700{% endif %} rounded-lg px-4 py-2 max-w-[80%]">
+                        {% if msg.role == 'user' %}
                         <p class="text-white text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                        {% else %}
+                        <div class="text-white text-sm prose prose-invert prose-sm max-w-none">{{ msg.content | markdown | safe }}</div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
