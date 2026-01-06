@@ -1,11 +1,22 @@
 """LLM-based game recommender using OpenAI/Azure OpenAI."""
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from openai import AzureOpenAI, OpenAI
 
-from homo_ludens.models import ConversationHistory, Game, Platform, UserProfile
+from homo_ludens.models import ConversationHistory, ConversationMessage, Game, Platform, UserProfile
+
+
+def _to_naive_datetime(dt: datetime | None) -> datetime:
+    """Convert datetime to naive (timezone-unaware) for comparison."""
+    if dt is None:
+        return datetime.min
+    if dt.tzinfo is not None:
+        # Convert to UTC then strip timezone
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
 
 SYSTEM_PROMPT = """You are a personal AI game companion called "Homo Ludens" (Latin for "Playing Human").
 Your role is to help the user choose the right game for the right moment based on their preferences,
@@ -64,7 +75,7 @@ def build_context_prompt(profile: UserProfile) -> str:
 
     # Recently played (if we have last_played data)
     recent = [g for g in sorted_games if g.last_played is not None]
-    recent = sorted(recent, key=lambda g: g.last_played or datetime.min, reverse=True)[:5]
+    recent = sorted(recent, key=lambda g: _to_naive_datetime(g.last_played), reverse=True)[:5]
     recent_str = (
         "\n".join(_format_game_with_achievements(g) for g in recent)
         if recent
@@ -251,8 +262,47 @@ class Recommender:
         # Call the API
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=messages,  # type: ignore
             max_completion_tokens=500,
         )
 
         return response.choices[0].message.content or ""
+
+    def generate_title(self, messages: list[ConversationMessage]) -> str:
+        """Generate a short title for a conversation based on its messages.
+
+        Args:
+            messages: The conversation messages to summarize.
+
+        Returns:
+            A short title (3-6 words) for the conversation.
+        """
+        if not messages:
+            return "New Conversation"
+
+        # Take first few messages for context
+        context_messages = messages[:4]  # First 2 exchanges max
+        conversation_text = "\n".join(
+            f"{msg.role}: {msg.content[:200]}" for msg in context_messages
+        )
+
+        prompt = f"""Generate a very short title (3-6 words) for this conversation about gaming. 
+The title should capture the main topic or question being discussed.
+Return ONLY the title, nothing else. No quotes, no punctuation at the end.
+
+Conversation:
+{conversation_text}"""
+
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],  # type: ignore
+            max_completion_tokens=30,
+        )
+
+        title = response.choices[0].message.content or "New Conversation"
+        # Clean up the title
+        title = title.strip().strip('"\'')
+        # Limit length
+        if len(title) > 50:
+            title = title[:47] + "..."
+        return title
