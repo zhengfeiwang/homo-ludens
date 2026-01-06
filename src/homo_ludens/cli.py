@@ -1,21 +1,26 @@
 """CLI interface for Homo Ludens."""
 
+import os
+import webbrowser
 from pathlib import Path
 
 import typer
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
+from homo_ludens.models import Platform
 from homo_ludens.recommender import Recommender
 from homo_ludens.steam import SteamAPIError, SteamClient
+from homo_ludens.psn import PSNAPIError, PSNClient
 from homo_ludens.storage import Storage
 
 # Load .env file - try current directory, then home directory
+ENV_FILE = Path.home() / ".homo_ludens" / ".env"
 load_dotenv(Path.cwd() / ".env")
-load_dotenv(Path.home() / ".homo_ludens" / ".env")
+load_dotenv(ENV_FILE)
 
 app = typer.Typer(
     name="homo-ludens",
@@ -80,7 +85,16 @@ def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEF
 def _show_status(console: Console, profile):
     """Show library status inline."""
     console.print("[bold]Library Status:[/bold]")
-    console.print(f"  Games: {len(profile.games)}")
+    
+    # Count by platform
+    steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
+    psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    
+    console.print(f"  Total games: {len(profile.games)}")
+    if steam_games:
+        console.print(f"    Steam: {len(steam_games)}")
+    if psn_games:
+        console.print(f"    PlayStation: {len(psn_games)}")
     
     if profile.games:
         total_playtime = sum(g.playtime_minutes for g in profile.games)
@@ -92,7 +106,7 @@ def _show_status(console: Console, profile):
         
         console.print(f"  Playtime: {total_playtime // 60} hours")
         console.print(f"  Played: {played}/{len(profile.games)}")
-        console.print(f"  With achievements: {games_with_ach}")
+        console.print(f"  With achievements/trophies: {games_with_ach}")
     
     if profile.wishlist:
         on_sale = [item for item in profile.wishlist if item.is_on_sale]
@@ -199,6 +213,146 @@ def sync(
         raise typer.Exit(1)
 
 
+@app.command("sync-psn")
+def sync_psn():
+    """Sync your PlayStation library."""
+    storage = Storage()
+    profile = storage.load_profile()
+
+    # Check if PSN token is configured
+    if not os.getenv("PSN_NPSSO_TOKEN"):
+        console.print(
+            "[yellow]PSN not configured. Run 'homo-ludens config --psn' to set up.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    console.print("[bold blue]Syncing PlayStation library...[/bold blue]")
+
+    try:
+        client = PSNClient()
+        console.print(f"[dim]Logged in as: {client.online_id}[/dim]")
+        
+        with console.status("[dim]Fetching games and trophies...[/dim]"):
+            games = client.get_owned_games()
+
+        console.print(
+            f"[bold green]Success![/bold green] Synced {len(games)} games from PlayStation."
+        )
+
+        # Merge with existing games (keep Steam games, add PSN games)
+        existing_non_psn = [g for g in profile.games if g.platform != Platform.PLAYSTATION]
+        profile.games = existing_non_psn + games
+        profile.psn_online_id = client.online_id
+        storage.save_profile(profile)
+
+        # Show games with highest trophy completion
+        games_with_trophies = [
+            g for g in games 
+            if g.achievement_stats and g.achievement_stats.total > 0
+        ]
+        games_with_trophies.sort(
+            key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+            reverse=True
+        )
+
+        if games_with_trophies:
+            console.print("\n[bold]Your top trophy games:[/bold]")
+            for i, game in enumerate(games_with_trophies[:5], 1):
+                if game.achievement_stats:
+                    console.print(
+                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
+                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total} trophies)"
+                    )
+
+    except PSNAPIError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
+
+
+@app.command()
+def config(
+    psn: bool = typer.Option(False, "--psn", help="Configure PlayStation Network"),
+    steam: bool = typer.Option(False, "--steam", help="Configure Steam"),
+    show: bool = typer.Option(False, "--show", help="Show current configuration"),
+):
+    """Configure platform connections."""
+    if show:
+        console.print(Panel("[bold]Current Configuration[/bold]", style="blue"))
+        
+        steam_key = os.getenv("STEAM_API_KEY")
+        steam_id = os.getenv("STEAM_ID")
+        psn_token = os.getenv("PSN_NPSSO_TOKEN")
+        
+        if steam_key:
+            console.print(f"Steam API Key: [green]configured[/green] ({steam_key[:8]}...)")
+        else:
+            console.print("Steam API Key: [yellow]not set[/yellow]")
+            
+        if steam_id:
+            console.print(f"Steam ID: [green]{steam_id}[/green]")
+        else:
+            console.print("Steam ID: [yellow]not set[/yellow]")
+            
+        if psn_token:
+            console.print(f"PSN Token: [green]configured[/green] ({psn_token[:8]}...)")
+        else:
+            console.print("PSN Token: [yellow]not set[/yellow]")
+        return
+
+    if psn:
+        console.print(Panel(
+            "[bold]PlayStation Network Setup[/bold]\n\n"
+            "To connect your PlayStation account:\n"
+            "1. Log in at [link]https://store.playstation.com[/link]\n"
+            "2. Visit [link]https://ca.account.sony.com/api/v1/ssocookie[/link]\n"
+            "3. Copy the 'npsso' value from the page\n\n"
+            "The token expires after ~60 days.",
+            style="blue",
+        ))
+        
+        if typer.confirm("Open the SSO cookie page in your browser?", default=True):
+            webbrowser.open("https://ca.account.sony.com/api/v1/ssocookie")
+        
+        token = Prompt.ask("\nPaste your NPSSO token")
+        if token.strip():
+            # Ensure directory exists
+            ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+            ENV_FILE.touch(exist_ok=True)
+            set_key(str(ENV_FILE), "PSN_NPSSO_TOKEN", token.strip())
+            console.print("[green]PSN token saved![/green]")
+            console.print("Run 'homo-ludens sync-psn' to sync your PlayStation library.")
+        else:
+            console.print("[yellow]No token provided.[/yellow]")
+        return
+
+    if steam:
+        console.print(Panel(
+            "[bold]Steam Setup[/bold]\n\n"
+            "To connect your Steam account:\n"
+            "1. Get your API key at [link]https://steamcommunity.com/dev/apikey[/link]\n"
+            "2. Find your Steam ID at [link]https://steamid.io[/link]",
+            style="blue",
+        ))
+        
+        api_key = Prompt.ask("Steam API Key")
+        if api_key.strip():
+            ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+            ENV_FILE.touch(exist_ok=True)
+            set_key(str(ENV_FILE), "STEAM_API_KEY", api_key.strip())
+        
+        steam_id = Prompt.ask("Steam ID (64-bit)")
+        if steam_id.strip():
+            set_key(str(ENV_FILE), "STEAM_ID", steam_id.strip())
+        
+        if api_key.strip() or steam_id.strip():
+            console.print("[green]Steam configuration saved![/green]")
+            console.print("Run 'homo-ludens sync' to sync your Steam library.")
+        return
+
+    # No flags - show help
+    console.print("Use --psn to configure PlayStation, --steam for Steam, or --show to view config.")
+
+
 @app.command()
 def chat():
     """Start a conversation with your game companion."""
@@ -296,12 +450,26 @@ def status():
 
     console.print(Panel("[bold]Homo Ludens Status[/bold]", style="blue"))
 
+    # Platform connections
     if profile.steam_id:
-        console.print(f"Steam ID: {profile.steam_id}")
+        console.print(f"Steam: [green]connected[/green] ({profile.steam_id})")
     else:
-        console.print("Steam: [yellow]Not connected[/yellow]")
+        console.print("Steam: [yellow]not connected[/yellow]")
 
-    console.print(f"Games in library: {len(profile.games)}")
+    if profile.psn_online_id:
+        console.print(f"PlayStation: [green]connected[/green] ({profile.psn_online_id})")
+    else:
+        console.print("PlayStation: [yellow]not connected[/yellow]")
+
+    # Game stats by platform
+    steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
+    psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    
+    console.print(f"\nGames in library: {len(profile.games)}")
+    if steam_games:
+        console.print(f"  Steam: {len(steam_games)}")
+    if psn_games:
+        console.print(f"  PlayStation: {len(psn_games)}")
 
     if profile.games:
         total_playtime = sum(g.playtime_minutes for g in profile.games)

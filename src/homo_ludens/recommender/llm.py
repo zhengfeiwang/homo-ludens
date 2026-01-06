@@ -5,36 +5,42 @@ from datetime import datetime
 
 from openai import AzureOpenAI, OpenAI
 
-from homo_ludens.models import ConversationHistory, Game, UserProfile
+from homo_ludens.models import ConversationHistory, Game, Platform, UserProfile
 
 SYSTEM_PROMPT = """You are a personal AI game companion called "Homo Ludens" (Latin for "Playing Human").
 Your role is to help the user choose the right game for the right moment based on their preferences,
 mood, available time, and gaming history.
 
-You have access to the user's game library, play history, achievement data, and wishlist. Use this information to make
-personalized recommendations. Be conversational, friendly, and curious about their gaming preferences.
+You have access to the user's game library across multiple platforms (Steam, PlayStation), play history, 
+achievement/trophy data, and wishlist. Use this information to make personalized recommendations. 
+Be conversational, friendly, and curious about their gaming preferences.
 
 When recommending games:
 1. Ask about their current mood, available time, or what kind of experience they're looking for
 2. Consider their play history - games they've spent time on, recently played, or haven't touched
-3. Use achievement completion as a signal of engagement (high % = loved it, low % = might have dropped it)
+3. Use achievement/trophy completion as a signal of engagement (high % = loved it, low % = might have dropped it)
 4. Suggest specific games from their library with brief reasons why
 5. When suggesting new games to buy, consider their wishlist and current deals
 6. Remember their preferences across conversations
+7. Make cross-platform recommendations - if they loved a game on one platform, recommend similar games on another
 
 Keep responses concise but helpful. You're a gaming buddy, not a formal assistant.
 """
 
 
-def _format_game_with_achievements(game) -> str:
+def _format_game_with_achievements(game: Game) -> str:
     """Format a game entry with playtime and achievement info."""
     hours = game.playtime_minutes // 60
     mins = game.playtime_minutes % 60
-    base = f"  - {game.name}: {hours}h {mins}m"
+    
+    # Platform indicator
+    platform_icon = "🎮" if game.platform == Platform.PLAYSTATION else "🖥️"
+    base = f"  - {platform_icon} {game.name}: {hours}h {mins}m"
     
     if game.achievement_stats and game.achievement_stats.total > 0:
         stats = game.achievement_stats
-        base += f" ({stats.unlocked}/{stats.total} achievements, {stats.completion_percent}% complete)"
+        trophy_word = "trophies" if game.platform == Platform.PLAYSTATION else "achievements"
+        base += f" ({stats.unlocked}/{stats.total} {trophy_word}, {stats.completion_percent}% complete)"
     
     return base
 
@@ -67,17 +73,18 @@ def build_context_prompt(profile: UserProfile) -> str:
     ]
     completed_games = [
         g for g in games_with_achievements 
-        if g.achievement_stats.completion_percent >= 50
+        if g.achievement_stats and g.achievement_stats.completion_percent >= 50
     ]
     completed_games = sorted(
         completed_games, 
-        key=lambda g: g.achievement_stats.completion_percent, 
+        key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
         reverse=True
     )[:5]
     completed_str = (
         "\n".join(
-            f"  - {g.name}: {g.achievement_stats.completion_percent}% achievements"
+            f"  - {g.name}: {g.achievement_stats.completion_percent}% {'trophies' if g.platform == Platform.PLAYSTATION else 'achievements'}"
             for g in completed_games
+            if g.achievement_stats
         )
         if completed_games
         else "  No achievement data available"
@@ -101,15 +108,23 @@ def build_context_prompt(profile: UserProfile) -> str:
     if prefs.notes:
         prefs_str += f"Notes: {prefs.notes}\n"
 
-    return f"""USER'S GAME LIBRARY ({len(profile.games)} games total):
+    # Platform breakdown
+    steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
+    psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    platform_str = f"Platforms: Steam ({len(steam_games)} games)"
+    if psn_games:
+        platform_str += f", PlayStation ({len(psn_games)} games)"
 
-Most Played:
+    return f"""USER'S GAME LIBRARY ({len(profile.games)} games total):
+{platform_str}
+
+Most Played (🖥️ = Steam, 🎮 = PlayStation):
 {top_played_str}
 
 Recently Played:
 {recent_str}
 
-High Achievement Completion (games they likely loved):
+High Achievement/Trophy Completion (games they likely loved):
 {completed_str}
 
 Unplayed Games (backlog):

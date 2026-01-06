@@ -119,6 +119,7 @@ class UserProfile(BaseModel):
     """Complete user profile."""
 
     steam_id: str | None = None
+    psn_online_id: str | None = None
     games: list[Game] = Field(default_factory=list)
     wishlist: list[WishlistItem] = Field(default_factory=list)
     play_history: list[PlaySession] = Field(default_factory=list)
