@@ -18,7 +18,7 @@
         <!-- Platform Filter with Sync Buttons -->
         <div class="flex rounded-lg bg-gray-800 p-1 items-center">
             <!-- All tab -->
-            <a href="/library?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}" 
+            <a href="/library?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}" 
                class="{% if not platform %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
                 All ({{ platform_counts.all }})
             </a>
@@ -44,7 +44,7 @@
             <span class="mx-1 text-gray-600">|</span>
             
             <!-- Steam tab -->
-            <a href="/library?platform=steam&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+            <a href="/library?platform=steam&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
                class="{% if platform == 'steam' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
                 🖥️ Steam ({{ platform_counts.steam }})
             </a>
@@ -68,7 +68,7 @@
             {% endif %}
             
             <!-- PlayStation tab -->
-            <a href="/library?platform=playstation&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+            <a href="/library?platform=playstation&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
                class="{% if platform == 'playstation' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
                 🎮 PSN ({{ platform_counts.playstation }})
             </a>
@@ -92,7 +92,7 @@
             {% endif %}
             
             <!-- Xbox tab -->
-            <a href="/library?platform=xbox&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+            <a href="/library?platform=xbox&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
                class="{% if platform == 'xbox' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
                 🟢 Xbox ({{ platform_counts.xbox }})
             </a>
@@ -121,7 +121,7 @@
             <span class="text-gray-400 text-sm">Sort:</span>
             <select 
                 class="bg-gray-800 text-white text-sm rounded-lg border border-gray-700 px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500"
-                onchange="window.location.href='/library?sort=' + this.value + '{% if platform %}&platform={{ platform }}{% endif %}{% if search %}&search={{ search }}{% endif %}'"
+                onchange="window.location.href='/library?sort=' + this.value + '{% if platform %}&platform={{ platform }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}'"
             >
                 <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Recently Played</option>
                 <option value="playtime" {% if sort == 'playtime' %}selected{% endif %}>Playtime</option>
@@ -130,11 +130,25 @@
             </select>
         </div>
 
+        <!-- Show Unplayed Toggle -->
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input 
+                    type="checkbox" 
+                    {% if show_unplayed %}checked{% endif %}
+                    onchange="window.location.href='/library?sort={{ sort }}{% if platform %}&platform={{ platform }}{% endif %}{% if search %}&search={{ search }}{% endif %}' + (this.checked ? '&show_unplayed=true' : '')"
+                    class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
+                >
+                <span class="text-gray-400 text-sm">Show unplayed</span>
+            </label>
+        </div>
+
         <!-- Search -->
         <div class="flex-1 max-w-xs">
             <form action="/library" method="get">
                 <input type="hidden" name="sort" value="{{ sort }}">
                 {% if platform %}<input type="hidden" name="platform" value="{{ platform }}">{% endif %}
+                {% if show_unplayed %}<input type="hidden" name="show_unplayed" value="true">{% endif %}
                 <input 
                     type="text" 
                     name="search" 

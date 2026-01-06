@@ -25,6 +25,7 @@ async def library(
     platform: str | None = Query(None, description="Filter by platform"),
     sort: str = Query("recent", description="Sort by: recent, playtime, name, completion"),
     search: str | None = Query(None, description="Search games"),
+    show_unplayed: bool = Query(False, description="Show unplayed games"),
 ):
     """Render the library page."""
     templates = request.app.state.templates
@@ -42,6 +43,10 @@ async def library(
         }
         if platform in platform_map:
             games = [g for g in games if g.platform == platform_map[platform]]
+
+    # Filter unplayed games (default: hide unplayed)
+    if not show_unplayed:
+        games = [g for g in games if g.playtime_minutes > 0 or g.last_played]
 
     # Search filter
     if search:
@@ -67,7 +72,7 @@ async def library(
             reverse=True,
         )
 
-    # Count by platform for filter UI
+    # Count by platform for filter UI (count all games, not filtered)
     platform_counts = {
         "all": len(profile.games),
         "steam": len([g for g in profile.games if g.platform == Platform.STEAM]),
@@ -88,6 +93,7 @@ async def library(
             "platform": platform,
             "sort": sort,
             "search": search or "",
+            "show_unplayed": show_unplayed,
             "platform_counts": platform_counts,
             "has_steam": has_steam,
             "has_psn": has_psn,
