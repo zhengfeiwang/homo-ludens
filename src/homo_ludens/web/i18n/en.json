@@ -1,0 +1,126 @@
+{
+  "app": {
+    "name": "Homo Ludens",
+    "tagline": "Your personal AI game companion"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "library": "Library",
+    "chat": "Chat",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your gaming overview across all platforms",
+    "total_games": "Total Games",
+    "total_playtime": "Total Playtime",
+    "played_backlog": "Played / Backlog",
+    "achievements": "Achievements",
+    "recently_played": "Recently Played",
+    "on_sale": "On Sale",
+    "no_recent_games": "No recent games",
+    "no_sale_items": "No wishlist items on sale",
+    "view_all": "View all",
+    "connect": "Connect",
+    "not_connected": "Not connected",
+    "games": "games"
+  },
+  "library": {
+    "title": "Game Library",
+    "games_count": "{count} games",
+    "all": "All",
+    "sort": "Sort",
+    "sort_recent": "Recently Played",
+    "sort_playtime": "Playtime",
+    "sort_name": "Name",
+    "sort_completion": "Completion %",
+    "show_unplayed": "Show unplayed",
+    "search_placeholder": "Search games...",
+    "no_games": "No games found",
+    "try_different_search": "Try a different search term",
+    "sync_library": "Sync your library from Settings",
+    "hours_played": "{hours}h played",
+    "not_played": "Not played",
+    "sync_all": "Sync all platforms",
+    "sync_steam": "Sync Steam",
+    "sync_psn": "Sync PlayStation",
+    "sync_xbox": "Sync Xbox"
+  },
+  "chat": {
+    "title": "Chat",
+    "subtitle": "Talk to your AI game companion",
+    "clear_history": "Clear history",
+    "input_placeholder": "Ask for a recommendation, discuss games, or just chat...",
+    "send": "Send",
+    "sending": "Sending...",
+    "welcome_message": "Hey! I'm your game companion. I can help you pick something to play based on your mood, available time, or whatever you're in the mood for. What's on your mind?",
+    "error": "Error",
+    "new_conversation": "New Chat",
+    "no_conversations": "No conversations yet",
+    "rename": "Rename",
+    "rename_conversation": "Rename Conversation",
+    "delete": "Delete",
+    "delete_conversation": "Delete Conversation",
+    "delete_confirm": "Are you sure you want to delete this conversation? This action cannot be undone.",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configure your platform connections",
+    "configured": "Configured",
+    "connected": "Connected",
+    "not_connected": "Not connected",
+    "save": "Save",
+    "steam": {
+      "title": "Steam",
+      "api_key": "API Key",
+      "api_key_placeholder": "Get from steamcommunity.com/dev/apikey",
+      "steam_id": "Steam ID (64-bit)",
+      "steam_id_placeholder": "Find at steamid.io",
+      "get_api_key": "Get API Key"
+    },
+    "playstation": {
+      "title": "PlayStation",
+      "npsso_token": "NPSSO Token",
+      "npsso_placeholder": "Get from PlayStation website",
+      "how_to_get": "How to get your NPSSO token:",
+      "step1": "Log in to PlayStation Store",
+      "step2": "Visit this link",
+      "step3": "Copy the \"npsso\" value from the JSON"
+    },
+    "xbox": {
+      "title": "Xbox",
+      "api_key": "OpenXBL API Key",
+      "api_key_placeholder": "Get from xbl.io",
+      "get_api_key": "Get API Key at xbl.io"
+    },
+    "ai": {
+      "title": "AI Configuration",
+      "using_azure": "Using Azure OpenAI",
+      "using_openai": "Using OpenAI",
+      "not_configured": "Not configured",
+      "config_info": "Configure your LLM provider via environment variables in"
+    },
+    "display": {
+      "title": "Display Settings",
+      "subtitle": "Language and UI preferences",
+      "language": "Display Language",
+      "language_note": "Re-sync your Steam library after changing language to fetch localized game names."
+    }
+  },
+  "sync": {
+    "success": "{platform} synced!",
+    "failed": "Sync failed",
+    "config_saved": "{platform} configuration saved! Run sync command to update your library."
+  },
+  "platforms": {
+    "steam": "Steam",
+    "playstation": "PlayStation",
+    "xbox": "Xbox"
+  },
+  "common": {
+    "hours": "h",
+    "last": "Last"
+  }
+}

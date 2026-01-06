@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from homo_ludens.storage import Storage
 from homo_ludens.web.routes import dashboard, library, chat, settings, sync
+from homo_ludens.web.i18n import get_current_language, get_text, SUPPORTED_LANGUAGES
 
 # Paths
 WEB_DIR = Path(__file__).parent
@@ -39,6 +40,16 @@ def create_app() -> FastAPI:
 
     # Register custom filters
     templates.env.filters["markdown"] = render_markdown
+
+    # Register global translation function
+    def t(key: str, **kwargs) -> str:
+        """Translate a key to the current language."""
+        lang = get_current_language()
+        return get_text(key, lang, **kwargs)
+
+    templates.env.globals["t"] = t
+    templates.env.globals["get_lang"] = get_current_language
+    templates.env.globals["supported_languages"] = SUPPORTED_LANGUAGES
 
     # Store templates and storage in app state for access in routes
     app.state.templates = templates
