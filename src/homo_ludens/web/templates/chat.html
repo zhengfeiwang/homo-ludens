@@ -1,79 +1,190 @@
 {% extends "base.html" %}
 
-{% block title %}Chat - Homo Ludens{% endblock %}
+{% block title %}{{ t('nav.chat') }} - {{ t('app.name') }}{% endblock %}
 
 {% block content %}
-<div class="px-4 sm:px-0 h-[calc(100vh-theme(spacing.32))] flex flex-col">
-    <!-- Header -->
-    <div class="mb-4 flex items-center justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-white">Chat</h1>
-            <p class="mt-1 text-gray-400">Talk to your AI game companion</p>
+<div class="h-[calc(100vh-theme(spacing.20))] flex">
+    <!-- Sidebar - Conversation List -->
+    <div class="w-64 bg-gray-900 border-r border-gray-700 flex flex-col">
+        <!-- New Chat Button -->
+        <div class="p-3 border-b border-gray-700">
+            <button 
+                hx-post="/chat/new"
+                hx-swap="none"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                {{ t('chat.new_conversation') }}
+            </button>
         </div>
-        <button 
-            hx-post="/chat/clear"
-            hx-target="#chat-messages"
-            hx-swap="innerHTML"
-            class="text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
-        >
-            Clear history
-        </button>
+
+        <!-- Conversation List -->
+        <div id="conversation-list" class="flex-1 overflow-y-auto">
+            {% set current_conversation_id = current_conversation.id %}
+            {% include "partials/conversation_list.html" %}
+        </div>
     </div>
 
-    <!-- Chat Container -->
-    <div class="flex-1 bg-gray-800 rounded-lg border border-gray-700 flex flex-col overflow-hidden">
-        <!-- Messages -->
-        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
-            {% if messages %}
-                {% for msg in messages %}
-                <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
-                    <div class="{% if msg.role == 'user' %}bg-blue-600{% else %}bg-gray-700{% endif %} rounded-lg px-4 py-2 max-w-[80%]">
-                        {% if msg.role == 'user' %}
-                        <p class="text-white text-sm whitespace-pre-wrap">{{ msg.content }}</p>
-                        {% else %}
-                        <div class="text-white text-sm prose prose-invert prose-sm max-w-none">{{ msg.content | markdown | safe }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% endfor %}
-            {% else %}
-            <div class="flex justify-start">
-                <div class="bg-gray-700 rounded-lg px-4 py-2 max-w-[80%]">
-                    <p class="text-white text-sm">Hey! I'm your game companion. I can help you pick something to play based on your mood, available time, or whatever you're in the mood for. What's on your mind?</p>
-                </div>
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col">
+        <!-- Chat Header -->
+        <div class="px-4 py-3 border-b border-gray-700 flex items-center justify-between bg-gray-800">
+            <div class="flex items-center gap-3">
+                <h1 id="chat-title" class="text-lg font-semibold text-white truncate max-w-md">
+                    {{ current_conversation.title }}
+                </h1>
+                {% if not is_new_conversation %}
+                <!-- Edit title button (only for saved conversations) -->
+                <button 
+                    onclick="showRenameModal()"
+                    class="text-gray-400 hover:text-white transition-colors"
+                    title="{{ t('chat.rename') }}"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                    </svg>
+                </button>
+                {% endif %}
             </div>
+            {% if not is_new_conversation %}
+            <!-- Delete button (only for saved conversations) -->
+            <button 
+                onclick="confirmDelete('{{ current_conversation.id }}')"
+                class="text-gray-400 hover:text-red-400 transition-colors"
+                title="{{ t('chat.delete') }}"
+            >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+            </button>
             {% endif %}
         </div>
 
-        <!-- Input -->
-        <div class="p-4 border-t border-gray-700">
-            <form 
-                hx-post="/chat/send"
-                hx-target="#chat-messages"
-                hx-swap="beforeend"
-                hx-on::after-request="this.reset(); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;"
-                class="flex gap-3"
-            >
-                <input 
-                    type="text" 
-                    name="message"
-                    placeholder="Ask for a recommendation, discuss games, or just chat..."
-                    autocomplete="off"
-                    class="flex-1 bg-gray-900 text-white rounded-lg border border-gray-700 px-4 py-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+        <!-- Messages Container -->
+        <div class="flex-1 bg-gray-800 flex flex-col overflow-hidden">
+            <!-- Messages -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                {% if messages %}
+                    {% for msg in messages %}
+                    <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+                        <div class="{% if msg.role == 'user' %}bg-blue-600{% else %}bg-gray-700{% endif %} rounded-lg px-4 py-2 max-w-[80%]">
+                            {% if msg.role == 'user' %}
+                            <p class="text-white text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                            {% else %}
+                            <div class="text-white text-sm prose prose-invert prose-sm max-w-none">{{ msg.content | markdown | safe }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="flex justify-start">
+                    <div class="bg-gray-700 rounded-lg px-4 py-2 max-w-[80%]">
+                        <p class="text-white text-sm">{{ t('chat.welcome_message') }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Input -->
+            <div class="p-4 border-t border-gray-700">
+                <form 
+                    id="chat-form"
+                    hx-post="/chat/{{ current_conv_id }}/send"
+                    hx-target="#chat-messages"
+                    hx-swap="beforeend"
+                    hx-on::before-request="showUserMessage()"
+                    hx-on::after-request="handleChatResponse(event)"
+                    hx-disabled-elt="#send-btn"
+                    class="flex gap-3"
                 >
-                <button 
-                    type="submit"
-                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2"
-                >
-                    <span class="htmx-indicator">
-                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <input 
+                        type="text" 
+                        name="message"
+                        id="message-input"
+                        placeholder="{{ t('chat.input_placeholder') }}"
+                        autocomplete="off"
+                        required
+                        class="flex-1 bg-gray-900 text-white rounded-lg border border-gray-700 px-4 py-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
+                    >
+                    <button 
+                        type="submit"
+                        id="send-btn"
+                        class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2"
+                    >
+                        <svg id="send-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                        <svg id="loading-icon" class="animate-spin h-4 w-4 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                    </span>
-                    Send
+                        {{ t('chat.send') }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Modal -->
+<div id="rename-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-96 border border-gray-700">
+        <h3 class="text-lg font-semibold text-white mb-4">{{ t('chat.rename_conversation') }}</h3>
+        <form 
+            hx-post="/chat/{{ current_conversation.id }}/rename"
+            hx-target="#conversation-list"
+            hx-swap="innerHTML"
+            hx-on::after-request="hideRenameModal(); updateChatTitle()"
+        >
+            <input 
+                type="text" 
+                name="title"
+                id="rename-input"
+                value="{{ current_conversation.title }}"
+                class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-4 py-2.5 focus:ring-blue-500 focus:border-blue-500 mb-4"
+            >
+            <div class="flex gap-3 justify-end">
+                <button 
+                    type="button"
+                    onclick="hideRenameModal()"
+                    class="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                    {{ t('chat.cancel') }}
                 </button>
-            </form>
+                <button 
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+                >
+                    {{ t('chat.save') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 w-96 border border-gray-700">
+        <h3 class="text-lg font-semibold text-white mb-2">{{ t('chat.delete_conversation') }}</h3>
+        <p class="text-gray-400 mb-4">{{ t('chat.delete_confirm') }}</p>
+        <div class="flex gap-3 justify-end">
+            <button 
+                type="button"
+                onclick="hideDeleteModal()"
+                class="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+            >
+                {{ t('chat.cancel') }}
+            </button>
+            <button 
+                id="confirm-delete-btn"
+                hx-delete=""
+                hx-swap="none"
+                class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+                {{ t('chat.delete') }}
+            </button>
         </div>
     </div>
 </div>
@@ -83,6 +194,136 @@
     document.addEventListener('DOMContentLoaded', function() {
         const chatMessages = document.getElementById('chat-messages');
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+
+    // Show user message immediately and typing indicator
+    function showUserMessage() {
+        const input = document.getElementById('message-input');
+        const message = input.value.trim();
+        if (!message) return;
+        
+        const chatMessages = document.getElementById('chat-messages');
+        
+        // Add user message immediately
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'flex justify-end';
+        userMsgDiv.innerHTML = `
+            <div class="bg-blue-600 rounded-lg px-4 py-2 max-w-[80%]">
+                <p class="text-white text-sm whitespace-pre-wrap">${escapeHtml(message)}</p>
+            </div>
+        `;
+        chatMessages.appendChild(userMsgDiv);
+        
+        // Add typing indicator
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typing-indicator';
+        typingDiv.className = 'flex justify-start';
+        typingDiv.innerHTML = `
+            <div class="bg-gray-700 rounded-lg px-4 py-3 max-w-[80%]">
+                <div class="flex items-center gap-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></div>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(typingDiv);
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Show loading icon, hide send icon
+        document.getElementById('send-icon').classList.add('hidden');
+        document.getElementById('loading-icon').classList.remove('hidden');
+        
+        // Clear input
+        input.value = '';
+    }
+
+    // Escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Handle chat response
+    function handleChatResponse(event) {
+        // Remove typing indicator
+        const typingIndicator = document.getElementById('typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+        
+        // Reset icons
+        document.getElementById('send-icon').classList.remove('hidden');
+        document.getElementById('loading-icon').classList.add('hidden');
+        
+        // Scroll to bottom
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Check if we need to generate a title (via custom header or data attribute)
+        const response = event.detail.xhr;
+        if (response && response.getResponseHeader('X-Generate-Title') === 'true') {
+            htmx.ajax('POST', '/chat/{{ current_conversation.id }}/generate-title', {
+                target: '#conversation-list',
+                swap: 'innerHTML'
+            });
+        }
+    }
+
+    // Rename modal functions
+    function showRenameModal() {
+        const modal = document.getElementById('rename-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('rename-input').focus();
+    }
+
+    function hideRenameModal() {
+        const modal = document.getElementById('rename-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function updateChatTitle() {
+        const newTitle = document.getElementById('rename-input').value;
+        document.getElementById('chat-title').textContent = newTitle;
+    }
+
+    // Delete modal functions
+    function confirmDelete(convId) {
+        const modal = document.getElementById('delete-modal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        
+        // Update the delete button's hx-delete attribute
+        const deleteBtn = document.getElementById('confirm-delete-btn');
+        deleteBtn.setAttribute('hx-delete', '/chat/' + convId);
+        htmx.process(deleteBtn);
+    }
+
+    function hideDeleteModal() {
+        const modal = document.getElementById('delete-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Close modals on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            hideRenameModal();
+            hideDeleteModal();
+        }
+    });
+
+    // Close modals on backdrop click
+    document.getElementById('rename-modal').addEventListener('click', function(e) {
+        if (e.target === this) hideRenameModal();
+    });
+    document.getElementById('delete-modal').addEventListener('click', function(e) {
+        if (e.target === this) hideDeleteModal();
     });
 </script>
 {% endblock %}

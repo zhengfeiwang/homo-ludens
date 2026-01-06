@@ -1,0 +1,18 @@
+<!-- Conversation List -->
+{% if conversations %}
+    {% for conv in conversations %}
+    <a 
+        href="/chat/{{ conv.id }}"
+        class="block px-3 py-2 mx-2 my-1 rounded-lg transition-colors {% if current_conversation_id == conv.id %}bg-gray-700 text-white{% else %}text-gray-300 hover:bg-gray-800 hover:text-white{% endif %}"
+    >
+        <div class="flex items-center justify-between">
+            <span class="truncate text-sm">{{ conv.title }}</span>
+            <span class="text-xs text-gray-500 ml-2 flex-shrink-0">{{ conv.message_count }}</span>
+        </div>
+    </a>
+    {% endfor %}
+{% else %}
+    <div class="p-4 text-center text-gray-500 text-sm">
+        {{ t('chat.no_conversations') }}
+    </div>
+{% endif %}

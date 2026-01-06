@@ -1,0 +1,35 @@
+<!-- Assistant response only (user message is shown immediately via JS) -->
+<div class="flex justify-start">
+    <div class="bg-gray-700 rounded-lg px-4 py-2 max-w-[80%]">
+        <div class="text-white text-sm prose prose-invert prose-sm max-w-none">{{ new_assistant_message | markdown | safe }}</div>
+    </div>
+</div>
+
+{% if redirect_to %}
+<!-- This was a new conversation, redirect to the saved URL and refresh sidebar -->
+<script>
+    // Update the URL without full page reload
+    history.replaceState(null, '', '{{ redirect_to }}');
+    
+    // Update the form action to use the new conversation ID
+    document.getElementById('chat-form').setAttribute('hx-post', '{{ redirect_to }}/send');
+    htmx.process(document.getElementById('chat-form'));
+    
+    // Refresh the conversation list
+    htmx.ajax('GET', '{{ redirect_to }}', {
+        target: '#conversation-list',
+        select: '#conversation-list',
+        swap: 'innerHTML'
+    });
+</script>
+{% endif %}
+
+{% if should_generate_title %}
+<!-- Trigger title generation -->
+<script>
+    htmx.ajax('POST', '/chat/{{ conversation.id }}/generate-title', {
+        target: '#conversation-list',
+        swap: 'innerHTML'
+    });
+</script>
+{% endif %}
