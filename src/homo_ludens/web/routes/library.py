@@ -34,6 +34,18 @@ async def library(
 
     games = profile.games
 
+    # Filter unplayed games first (this affects all counts)
+    if not show_unplayed:
+        games = [g for g in games if g.playtime_minutes > 0 or g.last_played]
+
+    # Count by platform for filter UI (count from filtered games)
+    platform_counts = {
+        "all": len(games),
+        "steam": len([g for g in games if g.platform == Platform.STEAM]),
+        "playstation": len([g for g in games if g.platform == Platform.PLAYSTATION]),
+        "xbox": len([g for g in games if g.platform == Platform.XBOX]),
+    }
+
     # Filter by platform
     if platform:
         platform_map = {
@@ -44,14 +56,14 @@ async def library(
         if platform in platform_map:
             games = [g for g in games if g.platform == platform_map[platform]]
 
-    # Filter unplayed games (default: hide unplayed)
-    if not show_unplayed:
-        games = [g for g in games if g.playtime_minutes > 0 or g.last_played]
+    # Get display language for search (map zh to schinese for game names)
+    display_language = os.getenv("DISPLAY_LANGUAGE", "en")
+    game_name_language = "schinese" if display_language == "zh" else display_language
 
-    # Search filter
+    # Search filter (search in both default name and localized name)
     if search:
         search_lower = search.lower()
-        games = [g for g in games if search_lower in g.name.lower()]
+        games = [g for g in games if search_lower in g.name.lower() or search_lower in g.get_name(game_name_language).lower()]
 
     # Sort
     if sort == "recent":
@@ -72,14 +84,6 @@ async def library(
             reverse=True,
         )
 
-    # Count by platform for filter UI (count all games, not filtered)
-    platform_counts = {
-        "all": len(profile.games),
-        "steam": len([g for g in profile.games if g.platform == Platform.STEAM]),
-        "playstation": len([g for g in profile.games if g.platform == Platform.PLAYSTATION]),
-        "xbox": len([g for g in profile.games if g.platform == Platform.XBOX]),
-    }
-
     # Check which platforms are configured
     has_steam = bool(os.getenv("STEAM_API_KEY") and os.getenv("STEAM_ID"))
     has_psn = bool(os.getenv("PSN_NPSSO_TOKEN"))
@@ -98,6 +102,7 @@ async def library(
             "has_steam": has_steam,
             "has_psn": has_psn,
             "has_xbox": has_xbox,
+            "display_language": game_name_language,
         },
     )
 
