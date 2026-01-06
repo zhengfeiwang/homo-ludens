@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from homo_ludens.storage import Storage
-from homo_ludens.web.routes import dashboard, library, chat, settings
+from homo_ludens.web.routes import dashboard, library, chat, settings, sync
 
 # Paths
 WEB_DIR = Path(__file__).parent
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(library.router)
     app.include_router(chat.router)
     app.include_router(settings.router)
+    app.include_router(sync.router)
 
     return app
 

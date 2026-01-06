@@ -1,5 +1,6 @@
 """Library route - browse games."""
 
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request, Query
@@ -74,6 +75,11 @@ async def library(
         "xbox": len([g for g in profile.games if g.platform == Platform.XBOX]),
     }
 
+    # Check which platforms are configured
+    has_steam = bool(os.getenv("STEAM_API_KEY") and os.getenv("STEAM_ID"))
+    has_psn = bool(os.getenv("PSN_NPSSO_TOKEN"))
+    has_xbox = bool(os.getenv("OPENXBL_API_KEY"))
+
     return templates.TemplateResponse(
         "library.html",
         {
@@ -83,6 +89,9 @@ async def library(
             "sort": sort,
             "search": search or "",
             "platform_counts": platform_counts,
+            "has_steam": has_steam,
+            "has_psn": has_psn,
+            "has_xbox": has_xbox,
         },
     )
 
