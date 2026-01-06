@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Homo Ludens{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-0">
+    <!-- Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-white">Dashboard</h1>
+        <p class="mt-2 text-gray-400">Your gaming overview across all platforms</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+        <!-- Total Games -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <span class="text-3xl">🎮</span>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="truncate text-sm font-medium text-gray-400">Total Games</dt>
+                            <dd class="text-2xl font-semibold text-white">{{ stats.total_games }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Playtime -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <span class="text-3xl">⏱️</span>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="truncate text-sm font-medium text-gray-400">Total Playtime</dt>
+                            <dd class="text-2xl font-semibold text-white">{{ stats.total_playtime_hours }}h</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Played vs Unplayed -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <span class="text-3xl">📊</span>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="truncate text-sm font-medium text-gray-400">Played / Backlog</dt>
+                            <dd class="text-2xl font-semibold text-white">{{ stats.played_count }} / {{ stats.unplayed_count }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Achievements -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <span class="text-3xl">🏆</span>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="truncate text-sm font-medium text-gray-400">Achievements</dt>
+                            <dd class="text-2xl font-semibold text-white">{{ stats.achievement_percent }}%</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Platform Cards -->
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 mb-8">
+        <!-- Steam -->
+        <div class="bg-steam overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🖥️</span>
+                        <div>
+                            <h3 class="text-lg font-medium text-white">Steam</h3>
+                            {% if platforms.steam.connected %}
+                            <p class="text-sm text-gray-300">{{ platforms.steam.id }}</p>
+                            {% else %}
+                            <p class="text-sm text-gray-400">Not connected</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if platforms.steam.connected %}
+                    <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
+                        {{ platforms.steam.game_count }} games
+                    </span>
+                    {% else %}
+                    <a href="/settings" class="text-sm text-blue-400 hover:text-blue-300">Connect →</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- PlayStation -->
+        <div class="bg-psn overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🎮</span>
+                        <div>
+                            <h3 class="text-lg font-medium text-white">PlayStation</h3>
+                            {% if platforms.playstation.connected %}
+                            <p class="text-sm text-gray-300">{{ platforms.playstation.id }}</p>
+                            {% else %}
+                            <p class="text-sm text-gray-400">Not connected</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if platforms.playstation.connected %}
+                    <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
+                        {{ platforms.playstation.game_count }} games
+                    </span>
+                    {% else %}
+                    <a href="/settings" class="text-sm text-blue-400 hover:text-blue-300">Connect →</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Xbox -->
+        <div class="bg-xbox overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <span class="text-2xl mr-3">🟢</span>
+                        <div>
+                            <h3 class="text-lg font-medium text-white">Xbox</h3>
+                            {% if platforms.xbox.connected %}
+                            <p class="text-sm text-gray-300">{{ platforms.xbox.id }}</p>
+                            {% else %}
+                            <p class="text-sm text-gray-400">Not connected</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if platforms.xbox.connected %}
+                    <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
+                        {{ platforms.xbox.game_count }} games
+                    </span>
+                    {% else %}
+                    <a href="/settings" class="text-sm text-blue-400 hover:text-blue-300">Connect →</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <!-- Recently Played -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <h3 class="text-lg font-medium text-white mb-4">Recently Played</h3>
+                {% if recent_games %}
+                <ul class="divide-y divide-gray-700">
+                    {% for game in recent_games %}
+                    <li class="py-3 flex items-center justify-between">
+                        <div class="flex items-center">
+                            {% if game.platform.value == 'steam' %}
+                            <span class="mr-2">🖥️</span>
+                            {% elif game.platform.value == 'playstation' %}
+                            <span class="mr-2">🎮</span>
+                            {% elif game.platform.value == 'xbox' %}
+                            <span class="mr-2">🟢</span>
+                            {% endif %}
+                            <span class="text-white">{{ game.name }}</span>
+                        </div>
+                        <span class="text-sm text-gray-400">
+                            {% if game.last_played %}
+                            {{ game.last_played.strftime('%b %d') }}
+                            {% endif %}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-gray-400">No recent games</p>
+                {% endif %}
+                <a href="/library?sort=recent" class="mt-4 inline-block text-sm text-blue-400 hover:text-blue-300">View all →</a>
+            </div>
+        </div>
+
+        <!-- Wishlist On Sale -->
+        <div class="bg-gray-800 overflow-hidden rounded-lg border border-gray-700">
+            <div class="p-5">
+                <h3 class="text-lg font-medium text-white mb-4">🔥 On Sale</h3>
+                {% if on_sale %}
+                <ul class="divide-y divide-gray-700">
+                    {% for item in on_sale %}
+                    <li class="py-3 flex items-center justify-between">
+                        <span class="text-white">{{ item.name }}</span>
+                        <div class="text-right">
+                            {% if item.price %}
+                            <span class="text-green-400 font-medium">{{ item.price.formatted }}</span>
+                            <span class="ml-2 text-xs text-green-500 bg-green-500/10 px-2 py-0.5 rounded">-{{ item.price.discount_percent }}%</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-gray-400">No wishlist items on sale</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

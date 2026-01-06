@@ -709,6 +709,29 @@ def clear():
         console.print("[green]All data cleared.[/green]")
 
 
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(8000, "--port", "-p", help="Port to bind to"),
+    reload: bool = typer.Option(False, "--reload", "-r", help="Enable auto-reload for development"),
+):
+    """Start the web UI server."""
+    import uvicorn
+    
+    console.print(Panel(
+        f"[bold]Starting Homo Ludens Web UI[/bold]\n\n"
+        f"Open your browser at: [link]http://{host}:{port}[/link]",
+        style="blue",
+    ))
+    
+    uvicorn.run(
+        "homo_ludens.web.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
 def main():
     """Entry point."""
     app()
