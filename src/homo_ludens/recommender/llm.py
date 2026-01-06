@@ -11,7 +11,7 @@ SYSTEM_PROMPT = """You are a personal AI game companion called "Homo Ludens" (La
 Your role is to help the user choose the right game for the right moment based on their preferences,
 mood, available time, and gaming history.
 
-You have access to the user's game library across multiple platforms (Steam, PlayStation), play history, 
+You have access to the user's game library across multiple platforms (Steam, PlayStation, Xbox), play history, 
 achievement/trophy data, and wishlist. Use this information to make personalized recommendations. 
 Be conversational, friendly, and curious about their gaming preferences.
 
@@ -33,8 +33,13 @@ def _format_game_with_achievements(game: Game) -> str:
     hours = game.playtime_minutes // 60
     mins = game.playtime_minutes % 60
     
-    # Platform indicator
-    platform_icon = "🎮" if game.platform == Platform.PLAYSTATION else "🖥️"
+    # Platform indicator (Xbox uses same icon as PlayStation since it's a console)
+    if game.platform == Platform.PLAYSTATION:
+        platform_icon = "🎮"
+    elif game.platform == Platform.XBOX:
+        platform_icon = "🟢"  # Xbox green
+    else:
+        platform_icon = "🖥️"  # Steam/PC
     base = f"  - {platform_icon} {game.name}: {hours}h {mins}m"
     
     if game.achievement_stats and game.achievement_stats.total > 0:
@@ -111,14 +116,17 @@ def build_context_prompt(profile: UserProfile) -> str:
     # Platform breakdown
     steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
     psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    xbox_games = [g for g in profile.games if g.platform == Platform.XBOX]
     platform_str = f"Platforms: Steam ({len(steam_games)} games)"
     if psn_games:
         platform_str += f", PlayStation ({len(psn_games)} games)"
+    if xbox_games:
+        platform_str += f", Xbox ({len(xbox_games)} games)"
 
     return f"""USER'S GAME LIBRARY ({len(profile.games)} games total):
 {platform_str}
 
-Most Played (🖥️ = Steam, 🎮 = PlayStation):
+Most Played (🖥️ = Steam, 🎮 = PlayStation, 🟢 = Xbox):
 {top_played_str}
 
 Recently Played:

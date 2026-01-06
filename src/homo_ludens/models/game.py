@@ -120,6 +120,7 @@ class UserProfile(BaseModel):
 
     steam_id: str | None = None
     psn_online_id: str | None = None
+    xbox_gamertag: str | None = None
     games: list[Game] = Field(default_factory=list)
     wishlist: list[WishlistItem] = Field(default_factory=list)
     play_history: list[PlaySession] = Field(default_factory=list)

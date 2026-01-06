@@ -15,6 +15,7 @@ from homo_ludens.models import Platform
 from homo_ludens.recommender import Recommender
 from homo_ludens.steam import SteamAPIError, SteamClient
 from homo_ludens.psn import PSNAPIError, PSNClient
+from homo_ludens.xbox import XboxAPIError, XboxClient
 from homo_ludens.storage import Storage
 
 # Load .env file - try current directory, then home directory
@@ -89,12 +90,15 @@ def _show_status(console: Console, profile):
     # Count by platform
     steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
     psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    xbox_games = [g for g in profile.games if g.platform == Platform.XBOX]
     
     console.print(f"  Total games: {len(profile.games)}")
     if steam_games:
         console.print(f"    Steam: {len(steam_games)}")
     if psn_games:
         console.print(f"    PlayStation: {len(psn_games)}")
+    if xbox_games:
+        console.print(f"    Xbox: {len(xbox_games)}")
     
     if profile.games:
         total_playtime = sum(g.playtime_minutes for g in profile.games)
@@ -111,6 +115,98 @@ def _show_status(console: Console, profile):
     if profile.wishlist:
         on_sale = [item for item in profile.wishlist if item.is_on_sale]
         console.print(f"  Wishlist: {len(profile.wishlist)} items ({len(on_sale)} on sale)")
+
+
+def _show_platform_details(console: Console, profile, steam: bool = False, psn: bool = False, xbox: bool = False):
+    """Show detailed stats for specific platform(s)."""
+    from homo_ludens.models import Platform
+    
+    platforms_to_show = []
+    if steam:
+        platforms_to_show.append(("Steam", Platform.STEAM, "achievements"))
+    if psn:
+        platforms_to_show.append(("PlayStation", Platform.PLAYSTATION, "trophies"))
+    if xbox:
+        platforms_to_show.append(("Xbox", Platform.XBOX, "achievements"))
+    
+    for platform_name, platform_enum, ach_word in platforms_to_show:
+        games = [g for g in profile.games if g.platform == platform_enum]
+        
+        if not games:
+            console.print(f"\n[yellow]No {platform_name} games found. Run sync command first.[/yellow]")
+            continue
+        
+        console.print(Panel(f"[bold]{platform_name} Library[/bold]", style="blue"))
+        
+        # Basic stats
+        # Consider a game "played" if it has playtime OR a last_played date
+        # (Xbox doesn't provide playtime, only last_played)
+        total_playtime = sum(g.playtime_minutes for g in games)
+        played = [g for g in games if g.playtime_minutes > 0 or g.last_played]
+        unplayed = [g for g in games if g.playtime_minutes == 0 and not g.last_played]
+        
+        console.print(f"Total games: {len(games)}")
+        console.print(f"Played: {len(played)} | Unplayed: {len(unplayed)}")
+        if total_playtime > 0:
+            console.print(f"Total playtime: {total_playtime // 60} hours")
+        elif platform_enum == Platform.XBOX:
+            console.print("[dim]Playtime: not available from Xbox API[/dim]")
+        
+        # Achievement/trophy stats
+        games_with_ach = [g for g in games if g.achievement_stats and g.achievement_stats.total > 0]
+        if games_with_ach:
+            total_ach = sum(g.achievement_stats.total for g in games_with_ach if g.achievement_stats)
+            unlocked_ach = sum(g.achievement_stats.unlocked for g in games_with_ach if g.achievement_stats)
+            completed = [g for g in games_with_ach if g.achievement_stats and g.achievement_stats.completion_percent == 100]
+            
+            console.print(f"\n[bold]{ach_word.title()}:[/bold]")
+            console.print(f"  Games with {ach_word}: {len(games_with_ach)}")
+            console.print(f"  Total {ach_word}: {unlocked_ach}/{total_ach} ({round(unlocked_ach/total_ach*100, 1) if total_ach > 0 else 0}%)")
+            console.print(f"  100% completed: {len(completed)}")
+        
+        # Top played games
+        top_played = sorted(games, key=lambda g: g.playtime_minutes, reverse=True)[:5]
+        if top_played and top_played[0].playtime_minutes > 0:
+            console.print(f"\n[bold]Most Played:[/bold]")
+            for i, game in enumerate(top_played, 1):
+                hours = game.playtime_minutes // 60
+                ach_str = ""
+                if game.achievement_stats and game.achievement_stats.total > 0:
+                    ach_str = f" ({game.achievement_stats.completion_percent}% {ach_word})"
+                console.print(f"  {i}. {game.name} - {hours}h{ach_str}")
+        
+        # Highest achievement completion
+        if games_with_ach:
+            top_completion = sorted(
+                games_with_ach, 
+                key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+                reverse=True
+            )[:5]
+            console.print(f"\n[bold]Highest {ach_word.title()} Completion:[/bold]")
+            for i, game in enumerate(top_completion, 1):
+                if game.achievement_stats:
+                    console.print(
+                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
+                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total})"
+                    )
+        
+        # Recently played (if available)
+        recent = [g for g in games if g.last_played]
+        if recent:
+            recent = sorted(recent, key=lambda g: g.last_played or g.last_played, reverse=True)[:5]
+            console.print(f"\n[bold]Recently Played:[/bold]")
+            for i, game in enumerate(recent, 1):
+                if game.last_played:
+                    date_str = game.last_played.strftime("%Y-%m-%d")
+                    console.print(f"  {i}. {game.name} - {date_str}")
+        
+        # Unplayed games (backlog)
+        if unplayed:
+            console.print(f"\n[bold]Backlog ({len(unplayed)} unplayed):[/bold]")
+            for game in unplayed[:10]:
+                console.print(f"  - {game.name}")
+            if len(unplayed) > 10:
+                console.print(f"  [dim]... and {len(unplayed) - 10} more[/dim]")
 
 
 @app.command()
@@ -269,10 +365,67 @@ def sync_psn():
         raise typer.Exit(1)
 
 
+@app.command("sync-xbox")
+def sync_xbox():
+    """Sync your Xbox library."""
+    storage = Storage()
+    profile = storage.load_profile()
+
+    # Check if Xbox API key is configured
+    if not os.getenv("OPENXBL_API_KEY"):
+        console.print(
+            "[yellow]Xbox not configured. Run 'homo-ludens config --xbox' to set up.[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    console.print("[bold blue]Syncing Xbox library...[/bold blue]")
+
+    try:
+        client = XboxClient()
+        console.print(f"[dim]Logged in as: {client.gamertag}[/dim]")
+        
+        with console.status("[dim]Fetching games and achievements...[/dim]"):
+            games = client.get_owned_games()
+
+        console.print(
+            f"[bold green]Success![/bold green] Synced {len(games)} games from Xbox."
+        )
+
+        # Merge with existing games (keep Steam/PSN games, add Xbox games)
+        existing_non_xbox = [g for g in profile.games if g.platform != Platform.XBOX]
+        profile.games = existing_non_xbox + games
+        profile.xbox_gamertag = client.gamertag
+        storage.save_profile(profile)
+
+        # Show games with highest achievement completion
+        games_with_achievements = [
+            g for g in games 
+            if g.achievement_stats and g.achievement_stats.total > 0
+        ]
+        games_with_achievements.sort(
+            key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+            reverse=True
+        )
+
+        if games_with_achievements:
+            console.print("\n[bold]Your top achievement games:[/bold]")
+            for i, game in enumerate(games_with_achievements[:5], 1):
+                if game.achievement_stats:
+                    console.print(
+                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
+                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total} achievements)"
+                    )
+
+    except XboxAPIError as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
+
+
 @app.command()
 def config(
     psn: bool = typer.Option(False, "--psn", help="Configure PlayStation Network"),
     steam: bool = typer.Option(False, "--steam", help="Configure Steam"),
+    xbox: bool = typer.Option(False, "--xbox", help="Configure Xbox"),
     show: bool = typer.Option(False, "--show", help="Show current configuration"),
 ):
     """Configure platform connections."""
@@ -282,6 +435,7 @@ def config(
         steam_key = os.getenv("STEAM_API_KEY")
         steam_id = os.getenv("STEAM_ID")
         psn_token = os.getenv("PSN_NPSSO_TOKEN")
+        xbox_key = os.getenv("OPENXBL_API_KEY")
         
         if steam_key:
             console.print(f"Steam API Key: [green]configured[/green] ({steam_key[:8]}...)")
@@ -297,6 +451,11 @@ def config(
             console.print(f"PSN Token: [green]configured[/green] ({psn_token[:8]}...)")
         else:
             console.print("PSN Token: [yellow]not set[/yellow]")
+        
+        if xbox_key:
+            console.print(f"Xbox API Key: [green]configured[/green] ({xbox_key[:8]}...)")
+        else:
+            console.print("Xbox API Key: [yellow]not set[/yellow]")
         return
 
     if psn:
@@ -358,8 +517,34 @@ def config(
             console.print("Run 'homo-ludens sync' to sync your Steam library.")
         return
 
+    if xbox:
+        console.print(Panel(
+            "[bold]Xbox Setup[/bold]\n\n"
+            "To connect your Xbox account via OpenXBL:\n\n"
+            "[bold]Step 1:[/bold] Go to [link]https://xbl.io[/link]\n\n"
+            "[bold]Step 2:[/bold] Sign in with your Xbox/Microsoft account\n\n"
+            "[bold]Step 3:[/bold] Go to your profile/settings to find your API key\n\n"
+            "[yellow]Note:[/yellow] Free tier allows 150 requests per hour.",
+            style="blue",
+        ))
+        
+        if typer.confirm("Open OpenXBL website?", default=True):
+            webbrowser.open("https://xbl.io")
+        
+        api_key = Prompt.ask("\nPaste your OpenXBL API key")
+        if api_key.strip():
+            # Ensure directory exists
+            ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+            ENV_FILE.touch(exist_ok=True)
+            set_key(str(ENV_FILE), "OPENXBL_API_KEY", api_key.strip())
+            console.print("[green]Xbox API key saved![/green]")
+            console.print("Run 'homo-ludens sync-xbox' to sync your Xbox library.")
+        else:
+            console.print("[yellow]No API key provided.[/yellow]")
+        return
+
     # No flags - show help
-    console.print("Use --psn to configure PlayStation, --steam for Steam, or --show to view config.")
+    console.print("Use --psn for PlayStation, --steam for Steam, --xbox for Xbox, or --show to view config.")
 
 
 @app.command()
@@ -452,10 +637,19 @@ def chat():
 
 
 @app.command()
-def status():
+def status(
+    steam: bool = typer.Option(False, "--steam", "-s", help="Show detailed Steam stats"),
+    psn: bool = typer.Option(False, "--psn", "-p", help="Show detailed PlayStation stats"),
+    xbox: bool = typer.Option(False, "--xbox", "-x", help="Show detailed Xbox stats"),
+):
     """Show current status and library info."""
     storage = Storage()
     profile = storage.load_profile()
+
+    # If a specific platform is requested, show detailed view
+    if steam or psn or xbox:
+        _show_platform_details(console, profile, steam=steam, psn=psn, xbox=xbox)
+        return
 
     console.print(Panel("[bold]Homo Ludens Status[/bold]", style="blue"))
 
@@ -470,15 +664,23 @@ def status():
     else:
         console.print("PlayStation: [yellow]not connected[/yellow]")
 
+    if profile.xbox_gamertag:
+        console.print(f"Xbox: [green]connected[/green] ({profile.xbox_gamertag})")
+    else:
+        console.print("Xbox: [yellow]not connected[/yellow]")
+
     # Game stats by platform
     steam_games = [g for g in profile.games if g.platform == Platform.STEAM]
     psn_games = [g for g in profile.games if g.platform == Platform.PLAYSTATION]
+    xbox_games = [g for g in profile.games if g.platform == Platform.XBOX]
     
     console.print(f"\nGames in library: {len(profile.games)}")
     if steam_games:
         console.print(f"  Steam: {len(steam_games)}")
     if psn_games:
         console.print(f"  PlayStation: {len(psn_games)}")
+    if xbox_games:
+        console.print(f"  Xbox: {len(xbox_games)}")
 
     if profile.games:
         total_playtime = sum(g.playtime_minutes for g in profile.games)
@@ -494,6 +696,8 @@ def status():
 
     history = storage.load_conversation()
     console.print(f"Conversation messages: {len(history.messages)}")
+    
+    console.print("\n[dim]Tip: Use --steam, --psn, or --xbox for detailed platform stats[/dim]")
 
 
 @app.command()
