@@ -26,6 +26,9 @@ from homo_ludens.models import Achievement, AchievementStats, Game, Platform, Pr
 STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_STORE_API = "https://store.steampowered.com/api"
 
+# Supported languages for localization
+SUPPORTED_LANGUAGES = ["english", "schinese"]  # English and Simplified Chinese
+
 
 class SteamAPIError(Exception):
     """Error from Steam API."""
@@ -48,11 +51,12 @@ class SteamClient:
                 "https://steamcommunity.com/dev/apikey"
             )
 
-    def get_owned_games(self, steam_id: str | None = None) -> list[Game]:
+    def get_owned_games(self, steam_id: str | None = None, fetch_localized: bool = False) -> list[Game]:
         """Fetch all games owned by the user with playtime info.
 
         Args:
             steam_id: Steam ID to fetch games for. Defaults to configured steam_id.
+            fetch_localized: If True, fetch localized names (slower, makes extra API calls).
 
         Returns:
             List of Game objects with playtime information.
@@ -78,17 +82,44 @@ class SteamClient:
 
         games = []
         for game_data in data.get("response", {}).get("games", []):
+            app_id = game_data['appid']
+            name = game_data.get("name", f"Unknown ({app_id})")
+            
+            # Initialize localized_names with English name from API
+            localized_names = {"en": name}
+            
             game = Game(
-                id=f"steam_{game_data['appid']}",
-                name=game_data.get("name", f"Unknown ({game_data['appid']})"),
+                id=f"steam_{app_id}",
+                name=name,
                 platform=Platform.STEAM,
                 playtime_minutes=game_data.get("playtime_forever", 0),
                 last_played=self._unix_to_datetime(game_data.get("rtime_last_played")),
-                header_image_url=f"https://steamcdn-a.akamaihd.net/steam/apps/{game_data['appid']}/header.jpg",
+                header_image_url=f"https://steamcdn-a.akamaihd.net/steam/apps/{app_id}/header.jpg",
+                localized_names=localized_names,
             )
             games.append(game)
 
         return games
+
+    def enrich_game_with_localized_names(self, game: Game) -> Game:
+        """Add localized names to a game.
+
+        Args:
+            game: Game object to enrich.
+
+        Returns:
+            Game with localized_names populated.
+        """
+        if not game.id.startswith("steam_"):
+            return game
+
+        app_id = int(game.id.replace("steam_", ""))
+        localized_names = self.get_localized_game_name(app_id)
+        
+        if localized_names:
+            game.localized_names.update(localized_names)
+
+        return game
 
     def get_recently_played(
         self, steam_id: str | None = None, count: int = 10
@@ -130,19 +161,20 @@ class SteamClient:
 
         return games
 
-    def get_game_details(self, app_id: int) -> dict | None:
+    def get_game_details(self, app_id: int, language: str = "english") -> dict | None:
         """Fetch detailed game info from Steam Store API.
 
         Note: This API is rate-limited and doesn't require an API key.
 
         Args:
             app_id: Steam application ID.
+            language: Language for localized content (e.g., 'english', 'schinese').
 
         Returns:
             Game details dict or None if not found.
         """
         url = f"{STEAM_STORE_API}/appdetails"
-        params = {"appids": app_id}
+        params = {"appids": app_id, "l": language}
 
         response = self._http_client.get(url, params=params)
         response.raise_for_status()
@@ -153,6 +185,29 @@ class SteamClient:
             return None
 
         return app_data.get("data")
+
+    def get_localized_game_name(self, app_id: int) -> dict[str, str]:
+        """Fetch game name in multiple languages.
+
+        Args:
+            app_id: Steam application ID.
+
+        Returns:
+            Dict mapping language code to localized name.
+        """
+        localized_names = {}
+        
+        for lang in SUPPORTED_LANGUAGES:
+            try:
+                details = self.get_game_details(app_id, language=lang)
+                if details and details.get("name"):
+                    # Map Steam language codes to our shorter codes
+                    lang_code = "en" if lang == "english" else "schinese"
+                    localized_names[lang_code] = details["name"]
+            except Exception:
+                pass
+        
+        return localized_names
 
     def enrich_game(self, game: Game) -> Game:
         """Enrich a game with additional details from Steam Store.

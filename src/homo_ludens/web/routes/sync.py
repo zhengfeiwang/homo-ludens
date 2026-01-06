@@ -34,6 +34,14 @@ async def sync_steam(request: Request):
         for game in played_games:
             client.enrich_game_with_achievements(game)
 
+        # Fetch localized names for played games if Chinese display is selected
+        display_language = os.getenv("DISPLAY_LANGUAGE", "en")
+        if display_language in ("zh", "schinese"):
+            # Only fetch for games with some playtime to reduce API calls
+            games_to_localize = [g for g in games if g.playtime_minutes > 0]
+            for game in games_to_localize:
+                client.enrich_game_with_localized_names(game)
+
         # Fetch wishlist
         wishlist_items = client.get_wishlist()
         for item in wishlist_items:
@@ -166,6 +174,9 @@ async def sync_all(request: Request):
     results = []
     errors = []
 
+    # Get display language preference
+    display_language = os.getenv("DISPLAY_LANGUAGE", "en")
+
     # Sync Steam if configured
     if os.getenv("STEAM_API_KEY") and os.getenv("STEAM_ID"):
         try:
@@ -175,6 +186,12 @@ async def sync_all(request: Request):
             played_games = [g for g in games if g.playtime_minutes >= 60]
             for game in played_games:
                 client.enrich_game_with_achievements(game)
+
+            # Fetch localized names for played games if Chinese display is selected
+            if display_language in ("zh", "schinese"):
+                games_to_localize = [g for g in games if g.playtime_minutes > 0]
+                for game in games_to_localize:
+                    client.enrich_game_with_localized_names(game)
 
             wishlist_items = client.get_wishlist()
             for item in wishlist_items:
