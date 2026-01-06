@@ -154,3 +154,90 @@ async def sync_xbox(request: Request):
             "partials/sync_error.html",
             {"request": request, "error": f"Xbox sync failed: {e}"},
         )
+
+
+@router.post("/all")
+async def sync_all(request: Request):
+    """Sync all configured platforms."""
+    templates = request.app.state.templates
+    storage = request.app.state.storage
+    profile = storage.load_profile()
+
+    results = []
+    errors = []
+
+    # Sync Steam if configured
+    if os.getenv("STEAM_API_KEY") and os.getenv("STEAM_ID"):
+        try:
+            client = SteamClient()
+            games = client.get_owned_games()
+
+            played_games = [g for g in games if g.playtime_minutes >= 60]
+            for game in played_games:
+                client.enrich_game_with_achievements(game)
+
+            wishlist_items = client.get_wishlist()
+            for item in wishlist_items:
+                client.enrich_wishlist_item(item)
+
+            profile.games = [g for g in profile.games if g.platform != Platform.STEAM] + games
+            profile.wishlist = wishlist_items
+            profile.steam_id = client.steam_id
+
+            results.append(f"Steam: {len(games)} games")
+        except SteamAPIError as e:
+            errors.append(f"Steam: {e}")
+
+    # Sync PSN if configured
+    if os.getenv("PSN_NPSSO_TOKEN"):
+        try:
+            client = PSNClient()
+            games = client.get_owned_games()
+
+            profile.games = [g for g in profile.games if g.platform != Platform.PLAYSTATION] + games
+            profile.psn_online_id = client.online_id
+
+            results.append(f"PlayStation: {len(games)} games")
+        except PSNAPIError as e:
+            errors.append(f"PlayStation: {e}")
+
+    # Sync Xbox if configured
+    if os.getenv("OPENXBL_API_KEY"):
+        try:
+            client = XboxClient()
+            games = client.get_owned_games()
+
+            profile.games = [g for g in profile.games if g.platform != Platform.XBOX] + games
+            profile.xbox_gamertag = client.gamertag
+
+            results.append(f"Xbox: {len(games)} games")
+        except XboxAPIError as e:
+            errors.append(f"Xbox: {e}")
+
+    # Save profile
+    storage.save_profile(profile)
+
+    if not results and not errors:
+        return templates.TemplateResponse(
+            "partials/sync_error.html",
+            {"request": request, "error": "No platforms configured. Go to Settings to set up."},
+        )
+
+    if errors and not results:
+        return templates.TemplateResponse(
+            "partials/sync_error.html",
+            {"request": request, "error": "; ".join(errors)},
+        )
+
+    message = ", ".join(results)
+    if errors:
+        message += f" (Errors: {'; '.join(errors)})"
+
+    return templates.TemplateResponse(
+        "partials/sync_success.html",
+        {
+            "request": request,
+            "platform": "All platforms",
+            "message": message,
+        },
+    )

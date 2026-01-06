@@ -8,21 +8,56 @@
     <div id="sync-notification" class="fixed top-20 right-4 z-50"></div>
 
     <!-- Header -->
-    <div class="mb-6 flex items-start justify-between">
-        <div>
-            <h1 class="text-3xl font-bold text-white">Game Library</h1>
-            <p class="mt-2 text-gray-400">{{ games|length }} games</p>
-        </div>
-        
-        <!-- Sync Buttons -->
-        <div class="flex gap-2">
-            {% if has_steam %}
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-white">Game Library</h1>
+        <p class="mt-2 text-gray-400">{{ games|length }} games</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="mb-6 flex flex-wrap gap-4 items-center">
+        <!-- Platform Filter with Sync Buttons -->
+        <div class="flex rounded-lg bg-gray-800 p-1 items-center">
+            <!-- All tab -->
+            <a href="/library?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}" 
+               class="{% if not platform %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
+                All ({{ platform_counts.all }})
+            </a>
+            {% if not platform and (has_steam or has_psn or has_xbox) %}
+            <button 
+                hx-post="/sync/all"
+                hx-target="#sync-notification"
+                hx-swap="innerHTML"
+                hx-indicator="#all-sync-indicator"
+                class="ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors"
+                title="Sync all platforms"
+            >
+                <span id="all-sync-indicator" class="htmx-indicator">
+                    <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+                <svg class="h-4 w-4 htmx-indicator-hide" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+            {% endif %}
+            
+            <span class="mx-1 text-gray-600">|</span>
+            
+            <!-- Steam tab -->
+            <a href="/library?platform=steam&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+               class="{% if platform == 'steam' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
+                🖥️ Steam ({{ platform_counts.steam }})
+            </a>
+            {% if platform == 'steam' and has_steam %}
             <button 
                 hx-post="/sync/steam"
                 hx-target="#sync-notification"
                 hx-swap="innerHTML"
                 hx-indicator="#steam-sync-indicator"
-                class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-700 transition-colors"
+                class="ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors"
+                title="Sync Steam"
             >
                 <span id="steam-sync-indicator" class="htmx-indicator">
                     <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -30,17 +65,25 @@
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </span>
-                <span>🖥️ Sync Steam</span>
+                <svg class="h-4 w-4 htmx-indicator-hide" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
             </button>
             {% endif %}
             
-            {% if has_psn %}
+            <!-- PlayStation tab -->
+            <a href="/library?platform=playstation&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+               class="{% if platform == 'playstation' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
+                🎮 PSN ({{ platform_counts.playstation }})
+            </a>
+            {% if platform == 'playstation' and has_psn %}
             <button 
                 hx-post="/sync/psn"
                 hx-target="#sync-notification"
                 hx-swap="innerHTML"
                 hx-indicator="#psn-sync-indicator"
-                class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-700 transition-colors"
+                class="ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors"
+                title="Sync PlayStation"
             >
                 <span id="psn-sync-indicator" class="htmx-indicator">
                     <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -48,17 +91,25 @@
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </span>
-                <span>🎮 Sync PSN</span>
+                <svg class="h-4 w-4 htmx-indicator-hide" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
             </button>
             {% endif %}
             
-            {% if has_xbox %}
+            <!-- Xbox tab -->
+            <a href="/library?platform=xbox&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
+               class="{% if platform == 'xbox' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
+                🟢 Xbox ({{ platform_counts.xbox }})
+            </a>
+            {% if platform == 'xbox' and has_xbox %}
             <button 
                 hx-post="/sync/xbox"
                 hx-target="#sync-notification"
                 hx-swap="innerHTML"
                 hx-indicator="#xbox-sync-indicator"
-                class="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white text-sm px-3 py-2 rounded-lg border border-gray-700 transition-colors"
+                class="ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors"
+                title="Sync Xbox"
             >
                 <span id="xbox-sync-indicator" class="htmx-indicator">
                     <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -66,38 +117,11 @@
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </span>
-                <span>🟢 Sync Xbox</span>
+                <svg class="h-4 w-4 htmx-indicator-hide" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
             </button>
             {% endif %}
-            
-            {% if not has_steam and not has_psn and not has_xbox %}
-            <a href="/settings" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-lg transition-colors">
-                Configure Platforms
-            </a>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="mb-6 flex flex-wrap gap-4 items-center">
-        <!-- Platform Filter -->
-        <div class="flex rounded-lg bg-gray-800 p-1">
-            <a href="/library?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}" 
-               class="{% if not platform %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                All ({{ platform_counts.all }})
-            </a>
-            <a href="/library?platform=steam&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
-               class="{% if platform == 'steam' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🖥️ Steam ({{ platform_counts.steam }})
-            </a>
-            <a href="/library?platform=playstation&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
-               class="{% if platform == 'playstation' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🎮 PSN ({{ platform_counts.playstation }})
-            </a>
-            <a href="/library?platform=xbox&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}"
-               class="{% if platform == 'xbox' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🟢 Xbox ({{ platform_counts.xbox }})
-            </a>
         </div>
 
         <!-- Sort -->
@@ -198,4 +222,9 @@
     </div>
     {% endif %}
 </div>
+
+<style>
+    .htmx-request .htmx-indicator { display: inline-block; }
+    .htmx-request .htmx-indicator-hide { display: none; }
+</style>
 {% endblock %}
