@@ -302,15 +302,24 @@ def config(
     if psn:
         console.print(Panel(
             "[bold]PlayStation Network Setup[/bold]\n\n"
-            "To connect your PlayStation account:\n"
-            "1. Log in at [link]https://store.playstation.com[/link]\n"
-            "2. Visit [link]https://ca.account.sony.com/api/v1/ssocookie[/link]\n"
-            "3. Copy the 'npsso' value from the page\n\n"
+            "To connect your PlayStation account:\n\n"
+            "[bold]Step 1:[/bold] Log in to PlayStation Store first:\n"
+            "         [link]https://store.playstation.com[/link]\n\n"
+            "[bold]Step 2:[/bold] After logging in, visit:\n"
+            "         [link]https://ca.account.sony.com/api/v1/ssocookie[/link]\n\n"
+            "[bold]Step 3:[/bold] Copy the 'npsso' value from the JSON response\n"
+            "         (It looks like a long string of letters and numbers)\n\n"
+            "[yellow]Note:[/yellow] You MUST be logged in first, otherwise you'll get an error.\n"
             "The token expires after ~60 days.",
             style="blue",
         ))
         
-        if typer.confirm("Open the SSO cookie page in your browser?", default=True):
+        if typer.confirm("Open PlayStation Store login page first?", default=True):
+            webbrowser.open("https://store.playstation.com")
+            console.print("\n[dim]Log in to PlayStation Store, then press Enter to continue...[/dim]")
+            input()
+        
+        if typer.confirm("Now open the SSO cookie page?", default=True):
             webbrowser.open("https://ca.account.sony.com/api/v1/ssocookie")
         
         token = Prompt.ask("\nPaste your NPSSO token")
