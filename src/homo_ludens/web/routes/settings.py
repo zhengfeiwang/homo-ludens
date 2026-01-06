@@ -44,6 +44,9 @@ async def settings_page(request: Request):
             "endpoint": os.getenv("AZURE_OPENAI_ENDPOINT", ""),
             "deployment": os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"),
         },
+        "display": {
+            "language": os.getenv("DISPLAY_LANGUAGE", "en"),
+        },
     }
 
     return templates.TemplateResponse(
@@ -115,4 +118,29 @@ async def save_xbox_config(
     return templates.TemplateResponse(
         "partials/settings_saved.html",
         {"request": request, "platform": "Xbox"},
+    )
+
+
+@router.post("/display")
+async def save_display_config(
+    request: Request,
+    language: str = Form("en"),
+):
+    """Save display settings."""
+    templates = request.app.state.templates
+
+    ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ENV_FILE.touch(exist_ok=True)
+
+    # Validate language choice and map to internal codes
+    # UI uses 'zh' but Steam API uses 'schinese' for game localization
+    valid_languages = ["en", "zh"]
+    if language in valid_languages:
+        set_key(str(ENV_FILE), "DISPLAY_LANGUAGE", language)
+        # Update the environment variable immediately
+        os.environ["DISPLAY_LANGUAGE"] = language
+
+    return templates.TemplateResponse(
+        "partials/settings_saved.html",
+        {"request": request, "platform": "Display"},
     )

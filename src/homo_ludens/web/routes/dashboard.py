@@ -1,5 +1,6 @@
 """Dashboard route - main overview page."""
 
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Request
@@ -77,6 +78,10 @@ async def dashboard(request: Request):
         },
     }
 
+    # Get display language (map zh to schinese for game names)
+    display_language = os.getenv("DISPLAY_LANGUAGE", "en")
+    game_name_language = "schinese" if display_language == "zh" else display_language
+
     return templates.TemplateResponse(
         "dashboard.html",
         {
@@ -85,5 +90,6 @@ async def dashboard(request: Request):
             "platforms": platforms,
             "recent_games": recent_games,
             "on_sale": on_sale,
+            "display_language": game_name_language,
         },
     )

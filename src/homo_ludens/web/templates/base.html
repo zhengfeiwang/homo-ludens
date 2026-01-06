@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-900">
+<html lang="{{ get_lang() }}" class="h-full bg-gray-900">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Homo Ludens{% endblock %}</title>
+    <title>{% block title %}{{ t('app.name') }}{% endblock %}</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -73,13 +73,13 @@
                 <div class="flex h-16 items-center justify-between">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <span class="text-2xl font-bold text-white">🎮 Homo Ludens</span>
+                            <span class="text-2xl font-bold text-white">🎮 {{ t('app.name') }}</span>
                         </div>
                         <div class="ml-10 flex items-baseline space-x-4">
-                            <a href="/" class="{% if request.url.path == '/' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">Dashboard</a>
-                            <a href="/library" class="{% if '/library' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">Library</a>
-                            <a href="/chat" class="{% if '/chat' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">Chat</a>
-                            <a href="/settings" class="{% if '/settings' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">Settings</a>
+                            <a href="/" class="{% if request.url.path == '/' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">{{ t('nav.dashboard') }}</a>
+                            <a href="/library" class="{% if '/library' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">{{ t('nav.library') }}</a>
+                            <a href="/chat" class="{% if '/chat' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">{{ t('nav.chat') }}</a>
+                            <a href="/settings" class="{% if '/settings' in request.url.path %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium">{{ t('nav.settings') }}</a>
                         </div>
                     </div>
                 </div>

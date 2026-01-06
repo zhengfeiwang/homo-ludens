@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Library - Homo Ludens{% endblock %}
+{% block title %}{{ t('nav.library') }} - {{ t('app.name') }}{% endblock %}
 
 {% block content %}
 <div class="px-4 sm:px-0">
@@ -9,8 +9,8 @@
 
     <!-- Header -->
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-white">Game Library</h1>
-        <p class="mt-2 text-gray-400">{{ games|length }} games</p>
+        <h1 class="text-3xl font-bold text-white">{{ t('library.title') }}</h1>
+        <p class="mt-2 text-gray-400">{{ games|length }} {{ t('dashboard.games') }}</p>
     </div>
 
     <!-- Filters -->
@@ -20,7 +20,7 @@
             <!-- All tab -->
             <a href="/library?sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}" 
                class="{% if not platform %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                All ({{ platform_counts.all }})
+                {{ t('library.all') }} ({{ platform_counts.all }})
             </a>
             {% if not platform and (has_steam or has_psn or has_xbox) %}
             <button 
@@ -29,7 +29,7 @@
                 hx-swap="innerHTML"
                 hx-disabled-elt="this"
                 class="sync-btn ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Sync all platforms"
+                title="{{ t('library.sync_all') }}"
             >
                 <svg class="sync-icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -55,7 +55,7 @@
                 hx-swap="innerHTML"
                 hx-disabled-elt="this"
                 class="sync-btn ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Sync Steam"
+                title="{{ t('library.sync_steam') }}"
             >
                 <svg class="sync-icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -79,7 +79,7 @@
                 hx-swap="innerHTML"
                 hx-disabled-elt="this"
                 class="sync-btn ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Sync PlayStation"
+                title="{{ t('library.sync_psn') }}"
             >
                 <svg class="sync-icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -103,7 +103,7 @@
                 hx-swap="innerHTML"
                 hx-disabled-elt="this"
                 class="sync-btn ml-1 p-1.5 text-gray-400 hover:text-white hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Sync Xbox"
+                title="{{ t('library.sync_xbox') }}"
             >
                 <svg class="sync-icon h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
@@ -118,15 +118,15 @@
 
         <!-- Sort -->
         <div class="flex items-center gap-2">
-            <span class="text-gray-400 text-sm">Sort:</span>
+            <span class="text-gray-400 text-sm">{{ t('library.sort') }}:</span>
             <select 
                 class="bg-gray-800 text-white text-sm rounded-lg border border-gray-700 px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500"
                 onchange="window.location.href='/library?sort=' + this.value + '{% if platform %}&platform={{ platform }}{% endif %}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}'"
             >
-                <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Recently Played</option>
-                <option value="playtime" {% if sort == 'playtime' %}selected{% endif %}>Playtime</option>
-                <option value="name" {% if sort == 'name' %}selected{% endif %}>Name</option>
-                <option value="completion" {% if sort == 'completion' %}selected{% endif %}>Completion %</option>
+                <option value="recent" {% if sort == 'recent' %}selected{% endif %}>{{ t('library.sort_recent') }}</option>
+                <option value="playtime" {% if sort == 'playtime' %}selected{% endif %}>{{ t('library.sort_playtime') }}</option>
+                <option value="name" {% if sort == 'name' %}selected{% endif %}>{{ t('library.sort_name') }}</option>
+                <option value="completion" {% if sort == 'completion' %}selected{% endif %}>{{ t('library.sort_completion') }}</option>
             </select>
         </div>
 
@@ -139,7 +139,7 @@
                     onchange="window.location.href='/library?sort={{ sort }}{% if platform %}&platform={{ platform }}{% endif %}{% if search %}&search={{ search }}{% endif %}' + (this.checked ? '&show_unplayed=true' : '')"
                     class="w-4 h-4 rounded border-gray-600 bg-gray-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-800"
                 >
-                <span class="text-gray-400 text-sm">Show unplayed</span>
+                <span class="text-gray-400 text-sm">{{ t('library.show_unplayed') }}</span>
             </label>
         </div>
 
@@ -153,7 +153,7 @@
                     type="text" 
                     name="search" 
                     value="{{ search }}"
-                    placeholder="Search games..."
+                    placeholder="{{ t('library.search_placeholder') }}"
                     class="w-full bg-gray-800 text-white text-sm rounded-lg border border-gray-700 px-3 py-1.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
                 >
             </form>
@@ -166,7 +166,7 @@
         <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-gray-600 transition-colors">
             <!-- Game Image -->
             {% if game.header_image_url %}
-            <img src="{{ game.header_image_url }}" alt="{{ game.name }}" class="w-full h-32 object-cover">
+            <img src="{{ game.header_image_url }}" alt="{{ game.get_name(display_language) }}" class="w-full h-32 object-cover">
             {% else %}
             <div class="w-full h-32 bg-gray-700 flex items-center justify-center">
                 <span class="text-4xl">🎮</span>
@@ -176,7 +176,7 @@
             <!-- Game Info -->
             <div class="p-4">
                 <div class="flex items-start justify-between">
-                    <h3 class="text-white font-medium text-sm line-clamp-2">{{ game.name }}</h3>
+                    <h3 class="text-white font-medium text-sm line-clamp-2">{{ game.get_name(display_language) }}</h3>
                     <span class="ml-2 flex-shrink-0">
                         {% if game.platform.value == 'steam' %}🖥️
                         {% elif game.platform.value == 'playstation' %}🎮
@@ -189,11 +189,11 @@
                     <!-- Playtime -->
                     <span>
                         {% if game.playtime_minutes > 0 %}
-                        {{ game.playtime_minutes // 60 }}h played
+                        {{ game.playtime_minutes // 60 }}{{ t('common.hours') }} played
                         {% elif game.last_played %}
-                        Last: {{ game.last_played.strftime('%b %d') }}
+                        {{ t('common.last') }}: {{ game.last_played.strftime('%b %d') }}
                         {% else %}
-                        Not played
+                        {{ t('library.not_played') }}
                         {% endif %}
                     </span>
                     
@@ -219,11 +219,11 @@
     {% if not games %}
     <div class="text-center py-12">
         <span class="text-6xl">🎮</span>
-        <p class="mt-4 text-gray-400">No games found</p>
+        <p class="mt-4 text-gray-400">{{ t('library.no_games') }}</p>
         {% if search %}
-        <p class="mt-2 text-sm text-gray-500">Try a different search term</p>
+        <p class="mt-2 text-sm text-gray-500">{{ t('library.try_different_search') }}</p>
         {% else %}
-        <p class="mt-2 text-sm text-gray-500">Sync your library from Settings</p>
+        <p class="mt-2 text-sm text-gray-500">{{ t('library.sync_library') }}</p>
         {% endif %}
     </div>
     {% endif %}

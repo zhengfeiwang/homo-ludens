@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Settings - Homo Ludens{% endblock %}
+{% block title %}{{ t('nav.settings') }} - {{ t('app.name') }}{% endblock %}
 
 {% block content %}
 <div class="px-4 sm:px-0">
     <!-- Header -->
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-white">Settings</h1>
-        <p class="mt-2 text-gray-400">Configure your platform connections</p>
+        <h1 class="text-3xl font-bold text-white">{{ t('settings.title') }}</h1>
+        <p class="mt-2 text-gray-400">{{ t('settings.subtitle') }}</p>
     </div>
 
     <div class="space-y-6 max-w-2xl">
@@ -17,44 +17,44 @@
                 <div class="flex items-center">
                     <span class="text-2xl mr-3">🖥️</span>
                     <div>
-                        <h3 class="text-lg font-medium text-white">Steam</h3>
+                        <h3 class="text-lg font-medium text-white">{{ t('settings.steam.title') }}</h3>
                         {% if config.steam.connected %}
-                        <p class="text-sm text-green-400">Connected: {{ config.steam.profile_id }}</p>
+                        <p class="text-sm text-green-400">{{ t('settings.connected') }}: {{ config.steam.profile_id }}</p>
                         {% else %}
-                        <p class="text-sm text-gray-400">Not connected</p>
+                        <p class="text-sm text-gray-400">{{ t('settings.not_connected') }}</p>
                         {% endif %}
                     </div>
                 </div>
                 {% if config.steam.api_key %}
                 <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
-                    Configured
+                    {{ t('settings.configured') }}
                 </span>
                 {% endif %}
             </div>
             
             <form hx-post="/settings/steam" hx-swap="outerHTML" hx-target="this" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('settings.steam.api_key') }}</label>
                     <input 
                         type="password" 
                         name="api_key" 
-                        placeholder="{% if config.steam.api_key %}••••••••{% else %}Get from steamcommunity.com/dev/apikey{% endif %}"
+                        placeholder="{% if config.steam.api_key %}••••••••{% else %}{{ t('settings.steam.api_key_placeholder') }}{% endif %}"
                         class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
                     >
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">Steam ID (64-bit)</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('settings.steam.steam_id') }}</label>
                     <input 
                         type="text" 
                         name="steam_id" 
-                        placeholder="{% if config.steam.steam_id %}{{ config.steam.steam_id }}{% else %}Find at steamid.io{% endif %}"
+                        placeholder="{% if config.steam.steam_id %}{{ config.steam.steam_id }}{% else %}{{ t('settings.steam.steam_id_placeholder') }}{% endif %}"
                         class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
                     >
                 </div>
                 <div class="flex justify-between items-center">
-                    <a href="https://steamcommunity.com/dev/apikey" target="_blank" class="text-sm text-blue-400 hover:text-blue-300">Get API Key →</a>
+                    <a href="https://steamcommunity.com/dev/apikey" target="_blank" class="text-sm text-blue-400 hover:text-blue-300">{{ t('settings.steam.get_api_key') }} →</a>
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-                        Save
+                        {{ t('settings.save') }}
                     </button>
                 </div>
             </form>
@@ -66,42 +66,42 @@
                 <div class="flex items-center">
                     <span class="text-2xl mr-3">🎮</span>
                     <div>
-                        <h3 class="text-lg font-medium text-white">PlayStation</h3>
+                        <h3 class="text-lg font-medium text-white">{{ t('settings.playstation.title') }}</h3>
                         {% if config.playstation.connected %}
-                        <p class="text-sm text-green-400">Connected: {{ config.playstation.profile_id }}</p>
+                        <p class="text-sm text-green-400">{{ t('settings.connected') }}: {{ config.playstation.profile_id }}</p>
                         {% else %}
-                        <p class="text-sm text-gray-400">Not connected</p>
+                        <p class="text-sm text-gray-400">{{ t('settings.not_connected') }}</p>
                         {% endif %}
                     </div>
                 </div>
                 {% if config.playstation.token %}
                 <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
-                    Configured
+                    {{ t('settings.configured') }}
                 </span>
                 {% endif %}
             </div>
             
             <form hx-post="/settings/playstation" hx-swap="outerHTML" hx-target="this" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">NPSSO Token</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('settings.playstation.npsso_token') }}</label>
                     <input 
                         type="password" 
                         name="npsso_token" 
-                        placeholder="{% if config.playstation.token %}••••••••{% else %}Get from PlayStation website{% endif %}"
+                        placeholder="{% if config.playstation.token %}••••••••{% else %}{{ t('settings.playstation.npsso_placeholder') }}{% endif %}"
                         class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
                     >
                 </div>
                 <div class="text-sm text-gray-400 bg-gray-900 rounded-lg p-3">
-                    <p class="font-medium text-gray-300 mb-2">How to get your NPSSO token:</p>
+                    <p class="font-medium text-gray-300 mb-2">{{ t('settings.playstation.how_to_get') }}</p>
                     <ol class="list-decimal list-inside space-y-1">
-                        <li>Log in to <a href="https://store.playstation.com" target="_blank" class="text-blue-400 hover:text-blue-300">PlayStation Store</a></li>
-                        <li>Visit <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" class="text-blue-400 hover:text-blue-300">this link</a></li>
-                        <li>Copy the "npsso" value from the JSON</li>
+                        <li>{{ t('settings.playstation.step1') }} <a href="https://store.playstation.com" target="_blank" class="text-blue-400 hover:text-blue-300">PlayStation Store</a></li>
+                        <li>{{ t('settings.playstation.step2') }} <a href="https://ca.account.sony.com/api/v1/ssocookie" target="_blank" class="text-blue-400 hover:text-blue-300">this link</a></li>
+                        <li>{{ t('settings.playstation.step3') }}</li>
                     </ol>
                 </div>
                 <div class="flex justify-end">
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-                        Save
+                        {{ t('settings.save') }}
                     </button>
                 </div>
             </form>
@@ -113,35 +113,35 @@
                 <div class="flex items-center">
                     <span class="text-2xl mr-3">🟢</span>
                     <div>
-                        <h3 class="text-lg font-medium text-white">Xbox</h3>
+                        <h3 class="text-lg font-medium text-white">{{ t('settings.xbox.title') }}</h3>
                         {% if config.xbox.connected %}
-                        <p class="text-sm text-green-400">Connected: {{ config.xbox.profile_id }}</p>
+                        <p class="text-sm text-green-400">{{ t('settings.connected') }}: {{ config.xbox.profile_id }}</p>
                         {% else %}
-                        <p class="text-sm text-gray-400">Not connected</p>
+                        <p class="text-sm text-gray-400">{{ t('settings.not_connected') }}</p>
                         {% endif %}
                     </div>
                 </div>
                 {% if config.xbox.api_key %}
                 <span class="inline-flex items-center rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">
-                    Configured
+                    {{ t('settings.configured') }}
                 </span>
                 {% endif %}
             </div>
             
             <form hx-post="/settings/xbox" hx-swap="outerHTML" hx-target="this" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-1">OpenXBL API Key</label>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('settings.xbox.api_key') }}</label>
                     <input 
                         type="password" 
                         name="api_key" 
-                        placeholder="{% if config.xbox.api_key %}••••••••{% else %}Get from xbl.io{% endif %}"
+                        placeholder="{% if config.xbox.api_key %}••••••••{% else %}{{ t('settings.xbox.api_key_placeholder') }}{% endif %}"
                         class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-3 py-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
                     >
                 </div>
                 <div class="flex justify-between items-center">
-                    <a href="https://xbl.io" target="_blank" class="text-sm text-blue-400 hover:text-blue-300">Get API Key at xbl.io →</a>
+                    <a href="https://xbl.io" target="_blank" class="text-sm text-blue-400 hover:text-blue-300">{{ t('settings.xbox.get_api_key') }} →</a>
                     <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
-                        Save
+                        {{ t('settings.save') }}
                     </button>
                 </div>
             </form>
@@ -153,20 +153,20 @@
                 <div class="flex items-center">
                     <span class="text-2xl mr-3">🤖</span>
                     <div>
-                        <h3 class="text-lg font-medium text-white">AI Configuration</h3>
+                        <h3 class="text-lg font-medium text-white">{{ t('settings.ai.title') }}</h3>
                         {% if config.llm.azure_configured %}
-                        <p class="text-sm text-green-400">Using Azure OpenAI</p>
+                        <p class="text-sm text-green-400">{{ t('settings.ai.using_azure') }}</p>
                         {% elif config.llm.openai_configured %}
-                        <p class="text-sm text-green-400">Using OpenAI</p>
+                        <p class="text-sm text-green-400">{{ t('settings.ai.using_openai') }}</p>
                         {% else %}
-                        <p class="text-sm text-gray-400">Not configured</p>
+                        <p class="text-sm text-gray-400">{{ t('settings.ai.not_configured') }}</p>
                         {% endif %}
                     </div>
                 </div>
             </div>
             
             <div class="text-sm text-gray-400 bg-gray-900 rounded-lg p-3">
-                <p>Configure your LLM provider via environment variables in <code class="text-blue-400">~/.homo_ludens/.env</code>:</p>
+                <p>{{ t('settings.ai.config_info') }} <code class="text-blue-400">~/.homo_ludens/.env</code>:</p>
                 <ul class="mt-2 space-y-1 font-mono text-xs">
                     <li>AZURE_OPENAI_API_KEY</li>
                     <li>AZURE_OPENAI_ENDPOINT</li>
@@ -175,6 +175,39 @@
                     <li>OPENAI_API_KEY</li>
                 </ul>
             </div>
+        </div>
+
+        <!-- Display Settings -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center">
+                    <span class="text-2xl mr-3">🌐</span>
+                    <div>
+                        <h3 class="text-lg font-medium text-white">{{ t('settings.display.title') }}</h3>
+                        <p class="text-sm text-gray-400">{{ t('settings.display.subtitle') }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <form hx-post="/settings/display" hx-swap="outerHTML" hx-target="this" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">{{ t('settings.display.language') }}</label>
+                    <select 
+                        name="language"
+                        class="w-full bg-gray-900 text-white rounded-lg border border-gray-700 px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        {% for code, name in supported_languages.items() %}
+                        <option value="{{ code }}" {% if config.display.language == code or (config.display.language == 'schinese' and code == 'zh') %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">{{ t('settings.display.language_note') }}</p>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg transition-colors">
+                        {{ t('settings.save') }}
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
