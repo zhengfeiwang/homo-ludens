@@ -1,8 +1,17 @@
 """Core data models for games and user profiles."""
 
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _ensure_naive_datetime(dt: datetime) -> datetime:
+    """Ensure datetime is naive (no timezone info)."""
+    if dt.tzinfo is not None:
+        # Convert to UTC then strip timezone
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 class Platform(str, Enum):
@@ -50,6 +59,10 @@ class Game(BaseModel):
     playtime_minutes: int = 0
     last_played: datetime | None = None
 
+    # Localized names (key: language code, value: localized name)
+    # e.g., {"en": "The Witcher 3", "schinese": "巫师3"}
+    localized_names: dict[str, str] = Field(default_factory=dict)
+
     # Metadata (can be enriched later)
     genres: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
@@ -59,6 +72,10 @@ class Game(BaseModel):
 
     # Achievement data
     achievement_stats: AchievementStats | None = None
+
+    def get_name(self, language: str = "en") -> str:
+        """Get the game name in the specified language, fallback to default name."""
+        return self.localized_names.get(language, self.name)
 
 
 class PriceInfo(BaseModel):
@@ -136,9 +153,14 @@ class ConversationMessage(BaseModel):
     content: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
+    @field_validator("timestamp", mode="after")
+    @classmethod
+    def ensure_naive_timestamp(cls, v: datetime) -> datetime:
+        return _ensure_naive_datetime(v)
+
 
 class ConversationHistory(BaseModel):
-    """Conversation history for context."""
+    """Conversation history for context (legacy, kept for compatibility)."""
 
     messages: list[ConversationMessage] = Field(default_factory=list)
     max_messages: int = 50  # Keep last N messages for context
@@ -148,3 +170,36 @@ class ConversationHistory(BaseModel):
         self.messages.append(ConversationMessage(role=role, content=content))
         if len(self.messages) > self.max_messages:
             self.messages = self.messages[-self.max_messages :]
+
+
+class Conversation(BaseModel):
+    """A conversation with the AI companion."""
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str = "New Conversation"
+    messages: list[ConversationMessage] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+    max_messages: int = 50  # Keep last N messages for context
+
+    @field_validator("created_at", "updated_at", mode="after")
+    @classmethod
+    def ensure_naive_datetime(cls, v: datetime) -> datetime:
+        return _ensure_naive_datetime(v)
+
+    def add_message(self, role: str, content: str) -> None:
+        """Add a message and trim if needed."""
+        self.messages.append(ConversationMessage(role=role, content=content))
+        if len(self.messages) > self.max_messages:
+            self.messages = self.messages[-self.max_messages :]
+        self.updated_at = datetime.now()
+
+
+class ConversationMetadata(BaseModel):
+    """Lightweight conversation metadata for listing."""
+
+    id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    message_count: int = 0

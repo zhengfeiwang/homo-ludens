@@ -3,8 +3,10 @@
 from homo_ludens.models.game import (
     Achievement,
     AchievementStats,
+    Conversation,
     ConversationHistory,
     ConversationMessage,
+    ConversationMetadata,
     Game,
     Platform,
     PlaySession,
@@ -17,8 +19,10 @@ from homo_ludens.models.game import (
 __all__ = [
     "Achievement",
     "AchievementStats",
+    "Conversation",
     "ConversationHistory",
     "ConversationMessage",
+    "ConversationMetadata",
     "Game",
     "Platform",
     "PlaySession",
