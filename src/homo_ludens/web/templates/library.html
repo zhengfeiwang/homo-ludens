@@ -45,8 +45,8 @@
             
             <!-- Steam tab -->
             <a href="/library?platform=steam&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
-               class="{% if platform == 'steam' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🖥️ Steam ({{ platform_counts.steam }})
+               class="{% if platform == 'steam' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md flex items-center gap-1">
+                <img src="/static/icons/steam.png" alt="Steam" class="w-4 h-4"> Steam ({{ platform_counts.steam }})
             </a>
             {% if platform == 'steam' and has_steam %}
             <button 
@@ -69,8 +69,8 @@
             
             <!-- PlayStation tab -->
             <a href="/library?platform=playstation&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
-               class="{% if platform == 'playstation' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🎮 PSN ({{ platform_counts.playstation }})
+               class="{% if platform == 'playstation' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md flex items-center gap-1">
+                <img src="/static/icons/playstation.png" alt="PlayStation" class="w-4 h-4"> PSN ({{ platform_counts.playstation }})
             </a>
             {% if platform == 'playstation' and has_psn %}
             <button 
@@ -93,8 +93,8 @@
             
             <!-- Xbox tab -->
             <a href="/library?platform=xbox&sort={{ sort }}{% if search %}&search={{ search }}{% endif %}{% if show_unplayed %}&show_unplayed=true{% endif %}"
-               class="{% if platform == 'xbox' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md">
-                🟢 Xbox ({{ platform_counts.xbox }})
+               class="{% if platform == 'xbox' %}bg-gray-700 text-white{% else %}text-gray-400 hover:text-white{% endif %} px-3 py-1.5 text-sm font-medium rounded-md flex items-center gap-1">
+                <img src="/static/icons/xbox.png" alt="Xbox" class="w-4 h-4"> Xbox ({{ platform_counts.xbox }})
             </a>
             {% if platform == 'xbox' and has_xbox %}
             <button 
@@ -178,9 +178,12 @@
                 <div class="flex items-start justify-between">
                     <h3 class="text-white font-medium text-sm line-clamp-2">{{ game.get_name(display_language) }}</h3>
                     <span class="ml-2 flex-shrink-0">
-                        {% if game.platform.value == 'steam' %}🖥️
-                        {% elif game.platform.value == 'playstation' %}🎮
-                        {% elif game.platform.value == 'xbox' %}🟢
+                        {% if game.platform.value == 'steam' %}
+                        <img src="/static/icons/steam.png" alt="Steam" class="w-4 h-4">
+                        {% elif game.platform.value == 'playstation' %}
+                        <img src="/static/icons/playstation.png" alt="PlayStation" class="w-4 h-4">
+                        {% elif game.platform.value == 'xbox' %}
+                        <img src="/static/icons/xbox.png" alt="Xbox" class="w-4 h-4">
                         {% endif %}
                     </span>
                 </div>

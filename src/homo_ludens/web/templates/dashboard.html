@@ -88,7 +88,7 @@
             <div class="p-5">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                        <span class="text-2xl mr-3">🖥️</span>
+                        <img src="/static/icons/steam.png" alt="Steam" class="w-6 h-6 mr-3">
                         <div>
                             <h3 class="text-lg font-medium text-white">{{ t('platforms.steam') }}</h3>
                             {% if platforms.steam.connected %}
@@ -114,7 +114,7 @@
             <div class="p-5">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                        <span class="text-2xl mr-3">🎮</span>
+                        <img src="/static/icons/playstation.png" alt="PlayStation" class="w-6 h-6 mr-3">
                         <div>
                             <h3 class="text-lg font-medium text-white">{{ t('platforms.playstation') }}</h3>
                             {% if platforms.playstation.connected %}
@@ -140,7 +140,7 @@
             <div class="p-5">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
-                        <span class="text-2xl mr-3">🟢</span>
+                        <img src="/static/icons/xbox.png" alt="Xbox" class="w-6 h-6 mr-3">
                         <div>
                             <h3 class="text-lg font-medium text-white">{{ t('platforms.xbox') }}</h3>
                             {% if platforms.xbox.connected %}
@@ -174,11 +174,11 @@
                     <li class="py-3 flex items-center justify-between">
                         <div class="flex items-center">
                             {% if game.platform.value == 'steam' %}
-                            <span class="mr-2">🖥️</span>
+                            <img src="/static/icons/steam.png" alt="Steam" class="w-4 h-4 mr-2">
                             {% elif game.platform.value == 'playstation' %}
-                            <span class="mr-2">🎮</span>
+                            <img src="/static/icons/playstation.png" alt="PlayStation" class="w-4 h-4 mr-2">
                             {% elif game.platform.value == 'xbox' %}
-                            <span class="mr-2">🟢</span>
+                            <img src="/static/icons/xbox.png" alt="Xbox" class="w-4 h-4 mr-2">
                             {% endif %}
                             <span class="text-white">{{ game.get_name(display_language) }}</span>
                         </div>
