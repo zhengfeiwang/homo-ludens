@@ -137,19 +137,20 @@ class XboxClient:
                     total_gs = achievement_data.get("totalGamerscore", 0)
                     progress_pct = achievement_data.get("progressPercentage", 0)
 
-                    # OpenXBL often returns totalAchievements=0 but has gamerscore data
-                    # Estimate total achievements from gamerscore if needed
-                    # Average achievement is ~20-25 gamerscore
-                    if total_ach == 0 and total_gs > 0:
-                        # Estimate based on gamerscore (roughly 20 GS per achievement)
-                        total_ach = max(total_gs // 20, current_ach + 1) if current_ach > 0 else total_gs // 20
+                    # OpenXBL often returns totalAchievements=0 but has gamerscore and progress data
+                    # Use progressPercentage to determine the correct total
+                    if total_ach == 0 and current_ach > 0:
+                        if progress_pct == 100:
+                            # 100% completion means current = total
+                            total_ach = current_ach
+                        elif progress_pct > 0:
+                            # Calculate total from percentage: if 18% = 9 achievements, total = 50
+                            total_ach = max(int(current_ach * 100 / progress_pct), current_ach)
+                        elif total_gs > 0:
+                            # Fallback: estimate from gamerscore (roughly 20 GS per achievement)
+                            total_ach = max(total_gs // 20, current_ach)
                     
                     if total_ach > 0 or current_ach > 0:
-                        # Use progress percentage if we can't calculate properly
-                        if total_ach == 0 and progress_pct > 0:
-                            # Estimate: if 18% = 9 achievements, total = 50
-                            total_ach = max(int(current_ach * 100 / progress_pct), current_ach) if progress_pct > 0 else current_ach
-                        
                         game.achievement_stats = AchievementStats(
                             total=max(total_ach, current_ach),  # Ensure total >= current
                             unlocked=current_ach,
