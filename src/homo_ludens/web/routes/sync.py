@@ -56,7 +56,7 @@ async def sync_steam(request: Request):
         storage.save_profile(profile)
 
         games_with_achievements = [
-            g for g in games if g.achievement_stats and g.achievement_stats.total > 0
+            g for g in games if g.progress and g.progress.total > 0
         ]
         on_sale = [item for item in wishlist_items if item.is_on_sale]
 
@@ -101,7 +101,7 @@ async def sync_psn(request: Request):
         storage.save_profile(profile)
 
         games_with_trophies = [
-            g for g in games if g.achievement_stats and g.achievement_stats.total > 0
+            g for g in games if g.progress and g.progress.total > 0
         ]
 
         return templates.TemplateResponse(
@@ -145,7 +145,7 @@ async def sync_xbox(request: Request):
         storage.save_profile(profile)
 
         games_with_achievements = [
-            g for g in games if g.achievement_stats and g.achievement_stats.total > 0
+            g for g in games if g.progress and g.progress.total > 0
         ]
 
         return templates.TemplateResponse(

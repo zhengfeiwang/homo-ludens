@@ -182,11 +182,31 @@
                             {% endif %}
                             <span class="text-white">{{ game.get_name(display_language) }}</span>
                         </div>
-                        <span class="text-sm text-gray-400">
-                            {% if game.last_played %}
-                            {{ game.last_played.strftime('%b %d') }}
+                        <div class="flex items-center gap-3 text-sm">
+                            {# Platform-specific progress #}
+                            {% if game.progress and game.progress.total > 0 %}
+                            <span class="{% if game.progress.completion_percent == 100 %}text-yellow-400{% elif game.progress.completion_percent >= 50 %}text-green-400{% else %}text-gray-400{% endif %}">
+                                {% if game.progress.type == 'playstation' %}
+                                    {# Trophy icons for PlayStation #}
+                                    {% if game.progress.platinum_unlocked > 0 %}&#127942;{% endif %}
+                                    {% if game.progress.gold_unlocked > 0 %}&#129351;{{ game.progress.gold_unlocked }}{% endif %}
+                                    {% if game.progress.silver_unlocked > 0 %}&#129352;{{ game.progress.silver_unlocked }}{% endif %}
+                                    {% if game.progress.bronze_unlocked > 0 %}&#129353;{{ game.progress.bronze_unlocked }}{% endif %}
+                                {% elif game.progress.type == 'xbox' and game.progress.total_gamerscore > 0 %}
+                                    {# Gamerscore for Xbox #}
+                                    {{ game.progress.unlocked_gamerscore }} GS
+                                {% else %}
+                                    {# Percentage for Steam and fallback #}
+                                    {{ game.progress.completion_percent }}%
+                                {% endif %}
+                            </span>
                             {% endif %}
-                        </span>
+                            <span class="text-gray-400">
+                                {% if game.last_played %}
+                                {{ game.last_played.strftime('%b %d') }}
+                                {% endif %}
+                            </span>
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>

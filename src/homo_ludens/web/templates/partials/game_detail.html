@@ -1,0 +1,265 @@
+{#
+  Game Detail Modal Content
+  
+  Shows game info and detailed achievement/trophy list.
+  
+  Required context:
+    - game: Game object with progress field
+    - display_language: Language code for game name
+#}
+
+<!-- Close Button -->
+<button 
+    @click="gameModalOpen = false"
+    class="absolute top-4 right-4 z-10 p-1 text-gray-400 hover:text-white transition-colors"
+>
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+    </svg>
+</button>
+
+<!-- Game Header Image -->
+{% if game.header_image_url %}
+<div class="relative h-48 overflow-hidden">
+    <img src="{{ game.header_image_url }}" alt="{{ game.get_name(display_language) }}" class="w-full h-full object-cover">
+    <div class="absolute inset-0 bg-gradient-to-t from-gray-800 to-transparent"></div>
+</div>
+{% else %}
+<div class="h-32 bg-gray-700 flex items-center justify-center">
+    <span class="text-6xl">🎮</span>
+</div>
+{% endif %}
+
+<!-- Game Info -->
+<div class="p-6">
+    <!-- Title and Platform -->
+    <div class="flex items-start justify-between mb-2">
+        <h2 class="text-xl font-bold text-white pr-8">{{ game.get_name(display_language) }}</h2>
+        <span class="flex-shrink-0">
+            {% if game.platform.value == 'steam' %}
+            <img src="/static/icons/steam.png" alt="Steam" class="w-6 h-6">
+            {% elif game.platform.value == 'playstation' %}
+            <img src="/static/icons/playstation.png" alt="PlayStation" class="w-6 h-6">
+            {% elif game.platform.value == 'xbox' %}
+            <img src="/static/icons/xbox.png" alt="Xbox" class="w-6 h-6">
+            {% endif %}
+        </span>
+    </div>
+
+    <!-- Playtime and Last Played -->
+    <p class="text-sm text-gray-400 mb-4">
+        {% if game.playtime_minutes > 0 %}
+        {{ game.playtime_minutes // 60 }}h {{ game.playtime_minutes % 60 }}m played
+        {% endif %}
+        {% if game.last_played %}
+        {% if game.playtime_minutes > 0 %} · {% endif %}
+        Last played: {{ game.last_played.strftime('%b %d, %Y') }}
+        {% endif %}
+        {% if game.playtime_minutes == 0 and not game.last_played %}
+        Not played yet
+        {% endif %}
+    </p>
+
+    <!-- Progress Summary -->
+    {% if game.progress and game.progress.total > 0 %}
+    <div class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-300">
+                {% if game.progress.type == 'steam' %}
+                Achievements
+                {% elif game.progress.type == 'playstation' %}
+                Trophies
+                {% elif game.progress.type == 'xbox' %}
+                Achievements
+                {% endif %}
+            </span>
+            <span class="text-sm text-gray-400">
+                {% if game.progress.type == 'xbox' and game.progress.total_gamerscore > 0 %}
+                {{ game.progress.unlocked_gamerscore }}/{{ game.progress.total_gamerscore }} GS · 
+                {% endif %}
+                {{ game.progress.unlocked }}/{{ game.progress.total }} ({{ game.progress.completion_percent }}%)
+            </span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-700 rounded-full h-2">
+            <div class="{% if game.progress.completion_percent == 100 %}bg-yellow-400{% elif game.progress.type == 'playstation' %}bg-blue-400{% elif game.progress.type == 'xbox' %}bg-green-500{% else %}bg-blue-500{% endif %} h-2 rounded-full transition-all" style="width: {{ game.progress.completion_percent }}%"></div>
+        </div>
+
+        <!-- PlayStation Trophy Breakdown -->
+        {% if game.progress.type == 'playstation' %}
+        <div class="mt-2 flex items-center gap-4 text-sm">
+            {% if game.progress.platinum_total > 0 %}
+            <span class="{% if game.progress.platinum_unlocked > 0 %}text-white{% else %}text-gray-500{% endif %}">
+                &#127942; {{ game.progress.platinum_unlocked }}/{{ game.progress.platinum_total }}
+            </span>
+            {% endif %}
+            <span class="{% if game.progress.gold_unlocked > 0 %}text-yellow-400{% else %}text-gray-500{% endif %}">
+                &#129351; {{ game.progress.gold_unlocked }}/{{ game.progress.gold_total }}
+            </span>
+            <span class="{% if game.progress.silver_unlocked > 0 %}text-gray-300{% else %}text-gray-500{% endif %}">
+                &#129352; {{ game.progress.silver_unlocked }}/{{ game.progress.silver_total }}
+            </span>
+            <span class="{% if game.progress.bronze_unlocked > 0 %}text-orange-400{% else %}text-gray-500{% endif %}">
+                &#129353; {{ game.progress.bronze_unlocked }}/{{ game.progress.bronze_total }}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Divider -->
+    <div class="border-t border-gray-700 my-4"></div>
+
+    <!-- Achievement/Trophy List -->
+    <div class="max-h-80 overflow-y-auto pr-2 -mr-2">
+        {% set achievements_list = [] %}
+        
+        {% if game.progress.type == 'steam' and game.progress.achievements %}
+            {% set achievements_list = game.progress.achievements %}
+        {% elif game.progress.type == 'playstation' and game.progress.trophies %}
+            {% set achievements_list = game.progress.trophies %}
+        {% elif game.progress.type == 'xbox' and game.progress.achievements %}
+            {% set achievements_list = game.progress.achievements %}
+        {% endif %}
+
+        {% if achievements_list %}
+            {# Sort: unlocked first, then locked #}
+            {% set unlocked_items = achievements_list | selectattr('achieved') | list %}
+            {% set locked_items = achievements_list | rejectattr('achieved') | list %}
+            {% set sorted_list = unlocked_items + locked_items %}
+
+            <div class="space-y-3">
+                {% for item in sorted_list %}
+                <div class="flex items-start gap-3 p-3 rounded-lg {% if item.achieved %}bg-gray-700/50{% else %}bg-gray-800/50{% endif %}">
+                    <!-- Achievement Icon -->
+                    <div class="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gray-700 flex items-center justify-center">
+                        {% if game.progress.type == 'steam' %}
+                            {% if item.achieved and item.icon_url %}
+                            <img src="{{ item.icon_url }}" alt="" class="w-full h-full object-cover">
+                            {% elif not item.achieved and item.icon_gray_url %}
+                            <img src="{{ item.icon_gray_url }}" alt="" class="w-full h-full object-cover opacity-50">
+                            {% elif item.icon_url %}
+                            <img src="{{ item.icon_url }}" alt="" class="w-full h-full object-cover {% if not item.achieved %}opacity-30 grayscale{% endif %}">
+                            {% else %}
+                            <span class="text-2xl {% if not item.achieved %}opacity-30{% endif %}">🏆</span>
+                            {% endif %}
+                        {% elif game.progress.type == 'playstation' %}
+                            {% if item.icon_url %}
+                            <img src="{{ item.icon_url }}" alt="" class="w-full h-full object-cover {% if not item.achieved %}opacity-30 grayscale{% endif %}">
+                            {% else %}
+                            <span class="text-2xl {% if not item.achieved %}opacity-30{% endif %}">
+                                {% if item.tier.value == 'platinum' %}&#127942;{% elif item.tier.value == 'gold' %}&#129351;{% elif item.tier.value == 'silver' %}&#129352;{% else %}&#129353;{% endif %}
+                            </span>
+                            {% endif %}
+                        {% elif game.progress.type == 'xbox' %}
+                            {% if item.icon_url %}
+                            <img src="{{ item.icon_url }}" alt="" class="w-full h-full object-cover {% if not item.achieved %}opacity-30 grayscale{% endif %}">
+                            {% else %}
+                            <span class="text-2xl {% if not item.achieved %}opacity-30{% endif %}">🏆</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Achievement Info -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <!-- Unlock Status Icon -->
+                            {% if item.achieved %}
+                            <svg class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                            </svg>
+                            {% else %}
+                            <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="9" stroke-width="2"></circle>
+                            </svg>
+                            {% endif %}
+
+                            <!-- PlayStation Trophy Tier -->
+                            {% if game.progress.type == 'playstation' %}
+                            <span class="text-sm flex-shrink-0">
+                                {% if item.tier.value == 'platinum' %}<span class="text-white">&#127942;</span>{% elif item.tier.value == 'gold' %}<span class="text-yellow-400">&#129351;</span>{% elif item.tier.value == 'silver' %}<span class="text-gray-300">&#129352;</span>{% else %}<span class="text-orange-400">&#129353;</span>{% endif %}
+                            </span>
+                            {% endif %}
+
+                            <!-- Achievement Name -->
+                            <span class="font-medium {% if item.achieved %}text-white{% else %}text-gray-400{% endif %} truncate">
+                                {% if game.progress.type == 'steam' and item.get_name %}
+                                    {{ item.get_name(display_language) }}
+                                {% else %}
+                                    {{ item.name or 'Unknown Achievement' }}
+                                {% endif %}
+                            </span>
+                        </div>
+
+                        <!-- Description -->
+                        {% if game.progress.type == 'steam' and item.get_description %}
+                            {% set desc = item.get_description(display_language) %}
+                            {% if desc %}
+                            <p class="text-sm text-gray-500 line-clamp-2 mb-1">{{ desc }}</p>
+                            {% endif %}
+                        {% elif item.description %}
+                        <p class="text-sm text-gray-500 line-clamp-2 mb-1">{{ item.description }}</p>
+                        {% endif %}
+
+                        <!-- Bottom Row: Rarity & Unlock Date -->
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <div class="flex items-center gap-2">
+                                <!-- Rarity Badge -->
+                                {% if game.progress.type == 'steam' and item.global_percent is not none %}
+                                    {% if item.global_percent < 5 %}
+                                    <span class="px-2 py-0.5 rounded text-purple-400 bg-purple-500/10 ring-1 ring-purple-500/20">Ultra Rare {{ "%.1f" | format(item.global_percent) }}%</span>
+                                    {% elif item.global_percent < 10 %}
+                                    <span class="px-2 py-0.5 rounded text-red-400 bg-red-500/10 ring-1 ring-red-500/20">Very Rare {{ "%.1f" | format(item.global_percent) }}%</span>
+                                    {% elif item.global_percent < 20 %}
+                                    <span class="px-2 py-0.5 rounded text-orange-400 bg-orange-500/10 ring-1 ring-orange-500/20">Rare {{ "%.1f" | format(item.global_percent) }}%</span>
+                                    {% elif item.global_percent < 50 %}
+                                    <span class="px-2 py-0.5 rounded text-blue-400 bg-blue-500/10 ring-1 ring-blue-500/20">Uncommon {{ "%.1f" | format(item.global_percent) }}%</span>
+                                    {% else %}
+                                    <span class="px-2 py-0.5 rounded text-gray-400 bg-gray-500/10 ring-1 ring-gray-500/20">Common {{ "%.1f" | format(item.global_percent) }}%</span>
+                                    {% endif %}
+                                {% elif (game.progress.type == 'playstation' or game.progress.type == 'xbox') and item.rarity_percent is not none %}
+                                    {% if item.rarity_percent < 5 %}
+                                    <span class="px-2 py-0.5 rounded text-purple-400 bg-purple-500/10 ring-1 ring-purple-500/20">Ultra Rare {{ "%.1f" | format(item.rarity_percent) }}%</span>
+                                    {% elif item.rarity_percent < 10 %}
+                                    <span class="px-2 py-0.5 rounded text-red-400 bg-red-500/10 ring-1 ring-red-500/20">Very Rare {{ "%.1f" | format(item.rarity_percent) }}%</span>
+                                    {% elif item.rarity_percent < 20 %}
+                                    <span class="px-2 py-0.5 rounded text-orange-400 bg-orange-500/10 ring-1 ring-orange-500/20">Rare {{ "%.1f" | format(item.rarity_percent) }}%</span>
+                                    {% elif item.rarity_percent < 50 %}
+                                    <span class="px-2 py-0.5 rounded text-blue-400 bg-blue-500/10 ring-1 ring-blue-500/20">Uncommon {{ "%.1f" | format(item.rarity_percent) }}%</span>
+                                    {% else %}
+                                    <span class="px-2 py-0.5 rounded text-gray-400 bg-gray-500/10 ring-1 ring-gray-500/20">Common {{ "%.1f" | format(item.rarity_percent) }}%</span>
+                                    {% endif %}
+                                {% endif %}
+
+                                <!-- Xbox Gamerscore -->
+                                {% if game.progress.type == 'xbox' and item.gamerscore > 0 %}
+                                <span class="px-2 py-0.5 rounded text-green-400 bg-green-500/10 ring-1 ring-green-500/20">+{{ item.gamerscore }} GS</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Unlock Date -->
+                            {% if item.achieved and item.unlock_time %}
+                            <span class="text-gray-500 flex-shrink-0">{{ item.unlock_time.strftime('%b %d, %Y') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- No Achievement Data -->
+            <div class="text-center py-8">
+                <span class="text-4xl">🏆</span>
+                <p class="mt-2 text-gray-400">No achievement data available</p>
+            </div>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <!-- No Progress Data -->
+    <div class="text-center py-8">
+        <span class="text-4xl">🏆</span>
+        <p class="mt-2 text-gray-400">No achievement data available</p>
+    </div>
+    {% endif %}
+</div>

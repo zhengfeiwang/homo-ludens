@@ -163,7 +163,12 @@
     <!-- Games Grid -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {% for game in games %}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-gray-600 transition-colors">
+        <div 
+            class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden hover:border-gray-600 transition-colors cursor-pointer game-card"
+            hx-get="/library/game/{{ game.id }}"
+            hx-target="#game-modal-content"
+            hx-swap="innerHTML"
+        >
             <!-- Game Image -->
             {% if game.header_image_url %}
             <img src="{{ game.header_image_url }}" alt="{{ game.get_name(display_language) }}" class="w-full h-32 object-cover">
@@ -200,18 +205,18 @@
                         {% endif %}
                     </span>
                     
-                    <!-- Achievement -->
-                    {% if game.achievement_stats and game.achievement_stats.total > 0 %}
-                    <span class="{% if game.achievement_stats.completion_percent == 100 %}text-yellow-400{% elif game.achievement_stats.completion_percent >= 50 %}text-green-400{% else %}text-gray-400{% endif %}">
-                        🏆 {{ game.achievement_stats.completion_percent }}%
-                    </span>
+                    <!-- Progress (platform-specific) -->
+                    {% if game.progress and game.progress.total > 0 %}
+                    {% set compact = true %}
+                    {% set show_bar = false %}
+                    {% include "partials/game_progress.html" %}
                     {% endif %}
                 </div>
                 
                 <!-- Progress Bar -->
-                {% if game.achievement_stats and game.achievement_stats.total > 0 %}
+                {% if game.progress and game.progress.total > 0 %}
                 <div class="mt-2 w-full bg-gray-700 rounded-full h-1.5">
-                    <div class="{% if game.achievement_stats.completion_percent == 100 %}bg-yellow-400{% else %}bg-blue-500{% endif %} h-1.5 rounded-full" style="width: {{ game.achievement_stats.completion_percent }}%"></div>
+                    <div class="{% if game.progress.completion_percent == 100 %}bg-yellow-400{% elif game.platform.value == 'playstation' %}bg-blue-400{% elif game.platform.value == 'xbox' %}bg-green-500{% else %}bg-blue-500{% endif %} h-1.5 rounded-full" style="width: {{ game.progress.completion_percent }}%"></div>
                 </div>
                 {% endif %}
             </div>
@@ -248,6 +253,13 @@
             const btn = evt.detail.elt;
             btn.querySelector('.sync-icon').classList.remove('hidden');
             btn.querySelector('.sync-spinner').classList.add('hidden');
+        }
+    });
+
+    // Open modal after game card content loads
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.elt.id === 'game-modal-content') {
+            window.dispatchEvent(new CustomEvent('game-modal-open'));
         }
     });
 </script>

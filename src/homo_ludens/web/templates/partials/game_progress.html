@@ -1,0 +1,81 @@
+{# 
+  Platform-specific progress display partial.
+  
+  Usage: {% include "partials/game_progress.html" %}
+  
+  Required context:
+    - game: Game object with progress field
+    - show_bar: (optional) boolean to show progress bar, default true
+    - compact: (optional) boolean for compact display, default false
+  
+  Display formats:
+    - Steam: 42/50 achievements (84%)
+    - PlayStation: trophy tier icons with counts
+    - Xbox: 850/1000 GS (85%)
+#}
+
+{% set show_bar = show_bar | default(true) %}
+{% set compact = compact | default(false) %}
+
+{% if game.progress and game.progress.total > 0 %}
+    {# Progress text display #}
+    <span class="{% if game.progress.completion_percent == 100 %}text-yellow-400{% elif game.progress.completion_percent >= 50 %}text-green-400{% else %}text-gray-400{% endif %}">
+        {% if game.progress.type == 'steam' %}
+            {# Steam: achievement count and percentage #}
+            {% if compact %}
+                {{ game.progress.completion_percent }}%
+            {% else %}
+                {{ game.progress.unlocked }}/{{ game.progress.total }} ({{ game.progress.completion_percent }}%)
+            {% endif %}
+        {% elif game.progress.type == 'playstation' %}
+            {# PlayStation: trophy tier icons #}
+            {% if compact %}
+                <span class="inline-flex items-center gap-0.5">
+                    {% if game.progress.platinum_unlocked > 0 %}<span title="Platinum">&#127942;</span>{% endif %}
+                    {% if game.progress.gold_unlocked > 0 %}<span class="text-yellow-400" title="Gold: {{ game.progress.gold_unlocked }}">&#129351;{{ game.progress.gold_unlocked }}</span>{% endif %}
+                    {% if game.progress.silver_unlocked > 0 %}<span class="text-gray-300" title="Silver: {{ game.progress.silver_unlocked }}">&#129352;{{ game.progress.silver_unlocked }}</span>{% endif %}
+                    {% if game.progress.bronze_unlocked > 0 %}<span class="text-orange-400" title="Bronze: {{ game.progress.bronze_unlocked }}">&#129353;{{ game.progress.bronze_unlocked }}</span>{% endif %}
+                    {% if game.progress.platinum_unlocked == 0 and game.progress.gold_unlocked == 0 and game.progress.silver_unlocked == 0 and game.progress.bronze_unlocked == 0 %}
+                        {{ game.progress.completion_percent }}%
+                    {% endif %}
+                </span>
+            {% else %}
+                <span class="inline-flex items-center gap-1">
+                    {% if game.progress.bronze_unlocked > 0 or game.progress.bronze_total > 0 %}
+                    <span title="Bronze: {{ game.progress.bronze_unlocked }}/{{ game.progress.bronze_total }}">&#129353;{{ game.progress.bronze_unlocked }}</span>
+                    {% endif %}
+                    {% if game.progress.silver_unlocked > 0 or game.progress.silver_total > 0 %}
+                    <span title="Silver: {{ game.progress.silver_unlocked }}/{{ game.progress.silver_total }}">&#129352;{{ game.progress.silver_unlocked }}</span>
+                    {% endif %}
+                    {% if game.progress.gold_unlocked > 0 or game.progress.gold_total > 0 %}
+                    <span title="Gold: {{ game.progress.gold_unlocked }}/{{ game.progress.gold_total }}">&#129351;{{ game.progress.gold_unlocked }}</span>
+                    {% endif %}
+                    {% if game.progress.platinum_total > 0 %}
+                    <span title="Platinum">{% if game.progress.platinum_unlocked > 0 %}&#127942;{% else %}<span class="opacity-30">&#127942;</span>{% endif %}</span>
+                    {% endif %}
+                </span>
+            {% endif %}
+        {% elif game.progress.type == 'xbox' %}
+            {# Xbox: gamerscore #}
+            {% if compact %}
+                {{ game.progress.unlocked_gamerscore }} GS
+            {% else %}
+                {% if game.progress.total_gamerscore > 0 %}
+                    {{ game.progress.unlocked_gamerscore }}/{{ game.progress.total_gamerscore }} GS
+                {% else %}
+                    {{ game.progress.unlocked }}/{{ game.progress.total }} ({{ game.progress.completion_percent }}%)
+                {% endif %}
+            {% endif %}
+        {% else %}
+            {# Fallback for unknown types #}
+            {{ game.progress.unlocked }}/{{ game.progress.total }} ({{ game.progress.completion_percent }}%)
+        {% endif %}
+    </span>
+
+    {# Progress bar #}
+    {% if show_bar %}
+    <div class="mt-2 w-full bg-gray-700 rounded-full h-1.5">
+        <div class="{% if game.progress.completion_percent == 100 %}bg-yellow-400{% elif game.progress.type == 'playstation' %}bg-blue-400{% elif game.progress.type == 'xbox' %}bg-green-500{% else %}bg-blue-500{% endif %} h-1.5 rounded-full" style="width: {{ game.progress.completion_percent }}%"></div>
+    </div>
+    {% endif %}
+{% endif %}

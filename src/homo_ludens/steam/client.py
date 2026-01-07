@@ -21,7 +21,15 @@ from datetime import datetime
 
 import httpx
 
-from homo_ludens.models import Achievement, AchievementStats, Game, Platform, PriceInfo, WishlistItem
+from homo_ludens.models import (
+    Game,
+    Platform,
+    PriceInfo,
+    WishlistItem,
+    SteamAchievement,
+    SteamProgressStats,
+    percent_to_rarity_tier,
+)
 
 STEAM_API_BASE = "https://api.steampowered.com"
 STEAM_STORE_API = "https://store.steampowered.com/api"
@@ -248,17 +256,69 @@ class SteamClient:
 
         return game
 
+    def get_achievement_schema(self, app_id: int, language: str = "english") -> dict[str, dict]:
+        """Fetch achievement schema (names, descriptions, icons) for a game.
+
+        Args:
+            app_id: Steam application ID.
+            language: Language code (e.g., 'english', 'schinese').
+
+        Returns:
+            Dict mapping api_name to achievement info (displayName, description, icon, icongray).
+        """
+        url = f"{STEAM_API_BASE}/ISteamUserStats/GetSchemaForGame/v2/"
+        params = {"key": self.api_key, "appid": app_id, "l": language}
+
+        try:
+            response = self._http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            return {}
+
+        schema = {}
+        achievements = data.get("game", {}).get("availableGameStats", {}).get("achievements", [])
+        for ach in achievements:
+            schema[ach.get("name", "")] = {
+                "displayName": ach.get("displayName"),
+                "description": ach.get("description"),
+                "icon": ach.get("icon"),
+                "icongray": ach.get("icongray"),
+            }
+
+        return schema
+
+    def get_achievement_schema_multilang(self, app_id: int) -> dict[str, dict[str, dict]]:
+        """Fetch achievement schema in multiple languages.
+
+        Args:
+            app_id: Steam application ID.
+
+        Returns:
+            Dict mapping language code to schema dict.
+            Schema dict maps api_name to achievement info.
+        """
+        schemas = {}
+        for lang in SUPPORTED_LANGUAGES:
+            schema = self.get_achievement_schema(app_id, language=lang)
+            if schema:
+                # Map Steam language codes to our shorter codes
+                lang_code = "en" if lang == "english" else lang
+                schemas[lang_code] = schema
+        return schemas
+
     def get_player_achievements(
-        self, app_id: int, steam_id: str | None = None
-    ) -> AchievementStats | None:
+        self, app_id: int, steam_id: str | None = None, fetch_localized: bool = True
+    ) -> SteamProgressStats | None:
         """Fetch player's achievements for a specific game.
 
         Args:
             app_id: Steam application ID.
             steam_id: Steam ID to fetch achievements for.
+            fetch_localized: If True, fetch achievement names in multiple languages.
 
         Returns:
-            AchievementStats or None if game has no achievements.
+            SteamProgressStats or None if game has no achievements.
         """
         steam_id = steam_id or self.steam_id
         if not steam_id:
@@ -286,31 +346,74 @@ class SteamClient:
         if not achievements_data:
             return None
 
+        # Get achievement schema for names, descriptions, icons
+        if fetch_localized:
+            # Fetch schemas in all supported languages
+            schemas = self.get_achievement_schema_multilang(app_id)
+            schema_en = schemas.get("en", {})
+            schema_zh = schemas.get("schinese", {})
+        else:
+            schema_en = self.get_achievement_schema(app_id, language="english")
+            schema_zh = {}
+
         # Get global achievement percentages for rarity info
         global_stats = self.get_global_achievement_stats(app_id)
+
+        # Store raw data for debugging/future use
+        raw_data = {
+            "player_stats": player_stats,
+            "schema_en": schema_en,
+            "schema_zh": schema_zh,
+            "global_stats": global_stats,
+        }
 
         achievements = []
         unlocked_count = 0
 
         for ach_data in achievements_data:
+            api_name = ach_data.get("apiname", "")
             achieved = ach_data.get("achieved", 0) == 1
             if achieved:
                 unlocked_count += 1
 
-            achievement = Achievement(
-                api_name=ach_data.get("apiname", ""),
-                name=ach_data.get("name"),
-                description=ach_data.get("description"),
+            # Get info from English schema (for icons and default name)
+            ach_schema_en = schema_en.get(api_name, {})
+            ach_schema_zh = schema_zh.get(api_name, {})
+            global_percent = global_stats.get(api_name)
+
+            # Build localized names and descriptions
+            localized_names = {}
+            localized_descriptions = {}
+            
+            if ach_schema_en.get("displayName"):
+                localized_names["en"] = ach_schema_en["displayName"]
+            if ach_schema_en.get("description"):
+                localized_descriptions["en"] = ach_schema_en["description"]
+            
+            if ach_schema_zh.get("displayName"):
+                localized_names["schinese"] = ach_schema_zh["displayName"]
+            if ach_schema_zh.get("description"):
+                localized_descriptions["schinese"] = ach_schema_zh["description"]
+
+            achievement = SteamAchievement(
+                api_name=api_name,
+                name=ach_schema_en.get("displayName"),  # Default to English
+                description=ach_schema_en.get("description"),
+                localized_names=localized_names,
+                localized_descriptions=localized_descriptions,
+                icon_url=ach_schema_en.get("icon"),
+                icon_gray_url=ach_schema_en.get("icongray"),
                 achieved=achieved,
                 unlock_time=self._unix_to_datetime(ach_data.get("unlocktime")),
-                global_percent=global_stats.get(ach_data.get("apiname", "")),
+                global_percent=global_percent,
             )
             achievements.append(achievement)
 
-        return AchievementStats(
+        return SteamProgressStats(
             total=len(achievements),
             unlocked=unlocked_count,
             achievements=achievements,
+            raw_data=raw_data,
         )
 
     def get_global_achievement_stats(self, app_id: int) -> dict[str, float]:
@@ -357,16 +460,16 @@ class SteamClient:
             steam_id: Steam ID to fetch achievements for.
 
         Returns:
-            Game with achievement_stats populated.
+            Game with progress populated.
         """
         if not game.id.startswith("steam_"):
             return game
 
         app_id = int(game.id.replace("steam_", ""))
-        achievement_stats = self.get_player_achievements(app_id, steam_id)
+        progress = self.get_player_achievements(app_id, steam_id)
 
-        if achievement_stats:
-            game.achievement_stats = achievement_stats
+        if progress:
+            game.progress = progress
 
         return game
 

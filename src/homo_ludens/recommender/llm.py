@@ -40,7 +40,7 @@ Keep responses concise but helpful. You're a gaming buddy, not a formal assistan
 
 
 def _format_game_with_achievements(game: Game) -> str:
-    """Format a game entry with playtime and achievement info."""
+    """Format a game entry with playtime and achievement/trophy/gamerscore info."""
     hours = game.playtime_minutes // 60
     mins = game.playtime_minutes % 60
     
@@ -53,10 +53,8 @@ def _format_game_with_achievements(game: Game) -> str:
         platform_icon = "🖥️"  # Steam/PC
     base = f"  - {platform_icon} {game.name}: {hours}h {mins}m"
     
-    if game.achievement_stats and game.achievement_stats.total > 0:
-        stats = game.achievement_stats
-        trophy_word = "trophies" if game.platform == Platform.PLAYSTATION else "achievements"
-        base += f" ({stats.unlocked}/{stats.total} {trophy_word}, {stats.completion_percent}% complete)"
+    if game.progress and game.progress.total > 0:
+        base += f" ({game.progress.display_summary})"
     
     return base
 
@@ -85,22 +83,22 @@ def build_context_prompt(profile: UserProfile) -> str:
     # High achievement completion games (loved games)
     games_with_achievements = [
         g for g in sorted_games 
-        if g.achievement_stats and g.achievement_stats.total > 0
+        if g.progress and g.progress.total > 0
     ]
     completed_games = [
         g for g in games_with_achievements 
-        if g.achievement_stats and g.achievement_stats.completion_percent >= 50
+        if g.progress and g.progress.completion_percent >= 50
     ]
     completed_games = sorted(
         completed_games, 
-        key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+        key=lambda g: g.progress.completion_percent if g.progress else 0, 
         reverse=True
     )[:5]
     completed_str = (
         "\n".join(
-            f"  - {g.name}: {g.achievement_stats.completion_percent}% {'trophies' if g.platform == Platform.PLAYSTATION else 'achievements'}"
+            f"  - {g.name}: {g.progress.display_summary}"
             for g in completed_games
-            if g.achievement_stats
+            if g.progress
         )
         if completed_games
         else "  No achievement data available"

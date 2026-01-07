@@ -14,14 +14,51 @@ from datetime import datetime
 
 from psnawp_api import PSNAWP
 from psnawp_api.core.psnawp_exceptions import PSNAWPNotFoundError, PSNAWPAuthenticationError
+from psnawp_api.models.trophies.trophy_constants import TrophyType
 
-from homo_ludens.models import Achievement, AchievementStats, Game, Platform
+from homo_ludens.models import (
+    Game,
+    Platform,
+    TrophyTier,
+    RarityTier,
+    PlayStationTrophy,
+    PlayStationProgressStats,
+    percent_to_rarity_tier,
+)
 
 
 class PSNAPIError(Exception):
     """Error from PlayStation Network API."""
 
     pass
+
+
+def _map_trophy_type_to_tier(trophy_type: TrophyType) -> TrophyTier:
+    """Convert psnawp TrophyType to our TrophyTier enum."""
+    mapping = {
+        TrophyType.BRONZE: TrophyTier.BRONZE,
+        TrophyType.SILVER: TrophyTier.SILVER,
+        TrophyType.GOLD: TrophyTier.GOLD,
+        TrophyType.PLATINUM: TrophyTier.PLATINUM,
+    }
+    return mapping.get(trophy_type, TrophyTier.BRONZE)
+
+
+def _map_psn_rarity_to_tier(rarity_value: str | None) -> RarityTier | None:
+    """Convert PSN rarity string to our RarityTier enum."""
+    if rarity_value is None:
+        return None
+    rarity_lower = str(rarity_value).lower()
+    if "ultra" in rarity_lower:
+        return RarityTier.ULTRA_RARE
+    elif "very" in rarity_lower:
+        return RarityTier.VERY_RARE
+    elif "rare" in rarity_lower:
+        return RarityTier.RARE
+    elif "uncommon" in rarity_lower:
+        return RarityTier.UNCOMMON
+    else:
+        return RarityTier.COMMON
 
 
 class PSNClient:
@@ -78,27 +115,101 @@ class PSNClient:
                     header_image_url=trophy_title.title_icon_url,
                 )
 
-                # Add trophy stats as achievement stats
+                # Build trophy stats
                 if trophy_title.defined_trophies:
-                    total = (
-                        trophy_title.defined_trophies.bronze +
-                        trophy_title.defined_trophies.silver +
-                        trophy_title.defined_trophies.gold +
-                        trophy_title.defined_trophies.platinum
-                    )
-                    unlocked = 0
-                    if trophy_title.earned_trophies:
-                        unlocked = (
-                            trophy_title.earned_trophies.bronze +
-                            trophy_title.earned_trophies.silver +
-                            trophy_title.earned_trophies.gold +
-                            trophy_title.earned_trophies.platinum
-                        )
+                    bronze_total = trophy_title.defined_trophies.bronze
+                    silver_total = trophy_title.defined_trophies.silver
+                    gold_total = trophy_title.defined_trophies.gold
+                    platinum_total = trophy_title.defined_trophies.platinum
+                    total = bronze_total + silver_total + gold_total + platinum_total
 
-                    game.achievement_stats = AchievementStats(
+                    bronze_unlocked = 0
+                    silver_unlocked = 0
+                    gold_unlocked = 0
+                    platinum_unlocked = 0
+                    if trophy_title.earned_trophies:
+                        bronze_unlocked = trophy_title.earned_trophies.bronze
+                        silver_unlocked = trophy_title.earned_trophies.silver
+                        gold_unlocked = trophy_title.earned_trophies.gold
+                        platinum_unlocked = trophy_title.earned_trophies.platinum
+                    unlocked = bronze_unlocked + silver_unlocked + gold_unlocked + platinum_unlocked
+
+                    # Fetch individual trophies with progress
+                    trophies = []
+                    raw_data = {
+                        "defined_trophies": {
+                            "bronze": bronze_total,
+                            "silver": silver_total,
+                            "gold": gold_total,
+                            "platinum": platinum_total,
+                        },
+                        "earned_trophies": {
+                            "bronze": bronze_unlocked,
+                            "silver": silver_unlocked,
+                            "gold": gold_unlocked,
+                            "platinum": platinum_unlocked,
+                        },
+                        "progress": trophy_title.progress,
+                    }
+
+                    try:
+                        # Get platform for trophy fetch
+                        platform = None
+                        if trophy_title.title_platform:
+                            platform = list(trophy_title.title_platform)[0]
+                        
+                        if platform:
+                            trophy_list = list(self._client.trophies(
+                                np_communication_id=trophy_title.np_communication_id,
+                                platform=platform,
+                                include_progress=True,
+                            ))
+                            
+                            for trophy in trophy_list:
+                                # Parse rarity percentage from string
+                                rarity_percent = None
+                                if hasattr(trophy, 'trophy_earn_rate') and trophy.trophy_earn_rate:
+                                    try:
+                                        rarity_percent = float(trophy.trophy_earn_rate)
+                                    except (ValueError, TypeError):
+                                        pass
+
+                                # Get rarity tier from PSN or calculate from percentage
+                                rarity_tier = None
+                                if hasattr(trophy, 'trophy_rarity') and trophy.trophy_rarity:
+                                    rarity_tier = _map_psn_rarity_to_tier(str(trophy.trophy_rarity.name))
+                                if rarity_tier is None and rarity_percent is not None:
+                                    rarity_tier = percent_to_rarity_tier(rarity_percent)
+
+                                ps_trophy = PlayStationTrophy(
+                                    trophy_id=trophy.trophy_id,
+                                    name=trophy.trophy_name,
+                                    description=trophy.trophy_detail,
+                                    icon_url=getattr(trophy, 'trophy_icon_url', None),
+                                    tier=_map_trophy_type_to_tier(trophy.trophy_type),
+                                    achieved=getattr(trophy, 'earned', False) or False,
+                                    unlock_time=getattr(trophy, 'earned_date_time', None),
+                                    rarity_percent=rarity_percent,
+                                    rarity_tier=rarity_tier,
+                                )
+                                trophies.append(ps_trophy)
+                    except Exception:
+                        # Failed to fetch individual trophies, continue with counts only
+                        pass
+
+                    game.progress = PlayStationProgressStats(
                         total=total,
                         unlocked=unlocked,
-                        achievements=[],  # Don't fetch individual trophies for now
+                        bronze_total=bronze_total,
+                        bronze_unlocked=bronze_unlocked,
+                        silver_total=silver_total,
+                        silver_unlocked=silver_unlocked,
+                        gold_total=gold_total,
+                        gold_unlocked=gold_unlocked,
+                        platinum_total=platinum_total,
+                        platinum_unlocked=platinum_unlocked,
+                        trophies=trophies,
+                        raw_data=raw_data,
                     )
 
                 games.append(game)
@@ -111,14 +222,14 @@ class PSNClient:
 
         return games
 
-    def get_game_trophies(self, np_communication_id: str) -> AchievementStats | None:
+    def get_game_trophies(self, np_communication_id: str) -> PlayStationProgressStats | None:
         """Fetch detailed trophy info for a specific game.
 
         Args:
             np_communication_id: The game's trophy communication ID.
 
         Returns:
-            AchievementStats with individual trophies, or None if not found.
+            PlayStationProgressStats with individual trophies, or None if not found.
         """
         try:
             # Get the trophy title
@@ -132,31 +243,80 @@ class PSNClient:
             if not trophy_title:
                 return None
 
-            # Get individual trophies with progress
-            achievements = []
-            trophies_iter = self._client.trophies(
-                np_communication_id=np_communication_id,
-                platform=list(trophy_title.title_platform)[0] if trophy_title.title_platform else None,
-            )
+            # Get platform
+            platform = None
+            if trophy_title.title_platform:
+                platform = list(trophy_title.title_platform)[0]
             
-            for trophy in trophies_iter:
-                achievement = Achievement(
-                    api_name=str(trophy.trophy_id),
+            if not platform:
+                return None
+
+            # Get individual trophies with progress
+            trophies = []
+            trophy_list = list(self._client.trophies(
+                np_communication_id=np_communication_id,
+                platform=platform,
+                include_progress=True,
+            ))
+
+            # Count by tier
+            tier_counts = {
+                TrophyTier.BRONZE: {"total": 0, "unlocked": 0},
+                TrophyTier.SILVER: {"total": 0, "unlocked": 0},
+                TrophyTier.GOLD: {"total": 0, "unlocked": 0},
+                TrophyTier.PLATINUM: {"total": 0, "unlocked": 0},
+            }
+
+            for trophy in trophy_list:
+                tier = _map_trophy_type_to_tier(trophy.trophy_type)
+                tier_counts[tier]["total"] += 1
+                
+                achieved = getattr(trophy, 'earned', False) or False
+                if achieved:
+                    tier_counts[tier]["unlocked"] += 1
+
+                # Parse rarity
+                rarity_percent = None
+                if hasattr(trophy, 'trophy_earn_rate') and trophy.trophy_earn_rate:
+                    try:
+                        rarity_percent = float(trophy.trophy_earn_rate)
+                    except (ValueError, TypeError):
+                        pass
+
+                rarity_tier = None
+                if hasattr(trophy, 'trophy_rarity') and trophy.trophy_rarity:
+                    rarity_tier = _map_psn_rarity_to_tier(str(trophy.trophy_rarity.name))
+                if rarity_tier is None and rarity_percent is not None:
+                    rarity_tier = percent_to_rarity_tier(rarity_percent)
+
+                ps_trophy = PlayStationTrophy(
+                    trophy_id=trophy.trophy_id,
                     name=trophy.trophy_name,
                     description=trophy.trophy_detail,
-                    achieved=getattr(trophy, 'earned', False) or False,
+                    icon_url=getattr(trophy, 'trophy_icon_url', None),
+                    tier=tier,
+                    achieved=achieved,
                     unlock_time=getattr(trophy, 'earned_date_time', None),
-                    global_percent=getattr(trophy, 'trophy_earn_rate', None),
+                    rarity_percent=rarity_percent,
+                    rarity_tier=rarity_tier,
                 )
-                achievements.append(achievement)
+                trophies.append(ps_trophy)
 
-            total = len(achievements)
-            unlocked = len([a for a in achievements if a.achieved])
+            total = len(trophies)
+            unlocked = len([t for t in trophies if t.achieved])
 
-            return AchievementStats(
+            return PlayStationProgressStats(
                 total=total,
                 unlocked=unlocked,
-                achievements=achievements,
+                bronze_total=tier_counts[TrophyTier.BRONZE]["total"],
+                bronze_unlocked=tier_counts[TrophyTier.BRONZE]["unlocked"],
+                silver_total=tier_counts[TrophyTier.SILVER]["total"],
+                silver_unlocked=tier_counts[TrophyTier.SILVER]["unlocked"],
+                gold_total=tier_counts[TrophyTier.GOLD]["total"],
+                gold_unlocked=tier_counts[TrophyTier.GOLD]["unlocked"],
+                platinum_total=tier_counts[TrophyTier.PLATINUM]["total"],
+                platinum_unlocked=tier_counts[TrophyTier.PLATINUM]["unlocked"],
+                trophies=trophies,
             )
 
         except Exception:

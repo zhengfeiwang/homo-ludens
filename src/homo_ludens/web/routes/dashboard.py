@@ -34,10 +34,10 @@ async def dashboard(request: Request):
     total_playtime_hours = sum(g.playtime_minutes for g in profile.games) // 60
     played_count = len([g for g in profile.games if g.playtime_minutes > 0 or g.last_played])
     
-    # Achievement stats
-    games_with_ach = [g for g in profile.games if g.achievement_stats and g.achievement_stats.total > 0]
-    total_ach = sum(g.achievement_stats.total for g in games_with_ach if g.achievement_stats)
-    unlocked_ach = sum(g.achievement_stats.unlocked for g in games_with_ach if g.achievement_stats)
+    # Achievement/trophy/gamerscore stats
+    games_with_ach = [g for g in profile.games if g.progress and g.progress.total > 0]
+    total_ach = sum(g.progress.total for g in games_with_ach if g.progress)
+    unlocked_ach = sum(g.progress.unlocked for g in games_with_ach if g.progress)
     
     # Recently played
     recent_games = [g for g in profile.games if g.last_played]

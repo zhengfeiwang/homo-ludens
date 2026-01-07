@@ -80,7 +80,7 @@ async def library(
         # Sort by achievement completion percentage
         games = sorted(
             games,
-            key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0,
+            key=lambda g: g.progress.completion_percent if g.progress else 0,
             reverse=True,
         )
 
@@ -122,7 +122,11 @@ async def game_detail(request: Request, game_id: str):
             {"request": request},
         )
 
+    # Get display language (map zh to schinese for game names)
+    display_language = os.getenv("DISPLAY_LANGUAGE", "en")
+    game_name_language = "schinese" if display_language == "zh" else display_language
+
     return templates.TemplateResponse(
         "partials/game_detail.html",
-        {"request": request, "game": game},
+        {"request": request, "game": game, "display_language": game_name_language},
     )

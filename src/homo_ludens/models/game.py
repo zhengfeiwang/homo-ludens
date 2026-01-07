@@ -3,6 +3,8 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Annotated, Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -24,8 +26,233 @@ class Platform(str, Enum):
     PC_OTHER = "pc_other"
 
 
+class TrophyTier(str, Enum):
+    """PlayStation trophy tiers."""
+
+    BRONZE = "bronze"
+    SILVER = "silver"
+    GOLD = "gold"
+    PLATINUM = "platinum"
+
+
+class RarityTier(str, Enum):
+    """Unified rarity tiers (derived from unlock percentage).
+    
+    - COMMON: >50% of players unlocked
+    - UNCOMMON: 20-50% of players unlocked
+    - RARE: 10-20% of players unlocked
+    - VERY_RARE: 5-10% of players unlocked
+    - ULTRA_RARE: <5% of players unlocked
+    """
+
+    COMMON = "common"
+    UNCOMMON = "uncommon"
+    RARE = "rare"
+    VERY_RARE = "very_rare"
+    ULTRA_RARE = "ultra_rare"
+
+
+def percent_to_rarity_tier(percent: float | None) -> RarityTier | None:
+    """Convert unlock percentage to rarity tier."""
+    if percent is None:
+        return None
+    if percent > 50:
+        return RarityTier.COMMON
+    elif percent > 20:
+        return RarityTier.UNCOMMON
+    elif percent > 10:
+        return RarityTier.RARE
+    elif percent > 5:
+        return RarityTier.VERY_RARE
+    else:
+        return RarityTier.ULTRA_RARE
+
+
+# =============================================================================
+# Platform-Specific Achievement/Trophy Classes
+# =============================================================================
+
+
+class SteamAchievement(BaseModel):
+    """Steam achievement with global rarity percentage and localized text."""
+
+    api_name: str = Field(description="Internal achievement identifier")
+    name: str | None = None  # Default/English name
+    description: str | None = None  # Default/English description
+    
+    # Localized names and descriptions (key: language code like 'en', 'schinese')
+    localized_names: dict[str, str] = Field(default_factory=dict)
+    localized_descriptions: dict[str, str] = Field(default_factory=dict)
+    
+    icon_url: str | None = None
+    icon_gray_url: str | None = None
+    achieved: bool = False
+    unlock_time: datetime | None = None
+    global_percent: float | None = None  # Percentage of players who unlocked this
+
+    def get_name(self, language: str = "en") -> str:
+        """Get achievement name in specified language, fallback to default."""
+        return self.localized_names.get(language) or self.name or "Unknown Achievement"
+
+    def get_description(self, language: str = "en") -> str | None:
+        """Get achievement description in specified language, fallback to default."""
+        return self.localized_descriptions.get(language) or self.description
+
+
+class PlayStationTrophy(BaseModel):
+    """PlayStation trophy with tier information."""
+
+    trophy_id: int = Field(description="Trophy ID within the game")
+    name: str | None = None
+    description: str | None = None
+    icon_url: str | None = None
+    tier: TrophyTier
+    achieved: bool = False
+    unlock_time: datetime | None = None
+    rarity_percent: float | None = None  # Percentage of players who unlocked this
+    rarity_tier: RarityTier | None = None  # Derived from rarity_percent or PSN's tier
+
+
+class XboxAchievement(BaseModel):
+    """Xbox achievement with gamerscore value."""
+
+    achievement_id: str = Field(description="Achievement ID")
+    name: str | None = None
+    description: str | None = None
+    icon_url: str | None = None
+    gamerscore: int = 0  # Points for this achievement (5, 10, 15, 25, 50, 100, etc.)
+    achieved: bool = False
+    unlock_time: datetime | None = None
+    rarity_percent: float | None = None
+    rarity_tier: RarityTier | None = None
+
+
+# =============================================================================
+# Platform-Specific Progress Stats Classes
+# =============================================================================
+
+
+class SteamProgressStats(BaseModel):
+    """Steam achievement statistics."""
+
+    type: Literal["steam"] = "steam"
+    total: int = 0
+    unlocked: int = 0
+    achievements: list[SteamAchievement] = Field(default_factory=list)
+    raw_data: dict = Field(default_factory=dict)
+
+    @property
+    def completion_percent(self) -> float:
+        """Calculate completion percentage."""
+        if self.total == 0:
+            return 0.0
+        return round(self.unlocked / self.total * 100, 1)
+
+    @property
+    def display_summary(self) -> str:
+        """Human-readable summary for display. E.g., '42/50 achievements (84%)'"""
+        return f"{self.unlocked}/{self.total} achievements ({self.completion_percent}%)"
+
+
+class PlayStationProgressStats(BaseModel):
+    """PlayStation trophy statistics with tier breakdown."""
+
+    type: Literal["playstation"] = "playstation"
+    total: int = 0
+    unlocked: int = 0
+
+    # Trophy counts by tier
+    bronze_total: int = 0
+    bronze_unlocked: int = 0
+    silver_total: int = 0
+    silver_unlocked: int = 0
+    gold_total: int = 0
+    gold_unlocked: int = 0
+    platinum_total: int = 0  # Usually 0 or 1
+    platinum_unlocked: int = 0
+
+    trophies: list[PlayStationTrophy] = Field(default_factory=list)
+    raw_data: dict = Field(default_factory=dict)
+
+    @property
+    def completion_percent(self) -> float:
+        """Calculate completion percentage."""
+        if self.total == 0:
+            return 0.0
+        return round(self.unlocked / self.total * 100, 1)
+
+    @property
+    def has_platinum(self) -> bool:
+        """Check if the platinum trophy has been earned."""
+        return self.platinum_unlocked > 0
+
+    @property
+    def display_summary(self) -> str:
+        """Human-readable summary with trophy icons. E.g., '🥉12 🥈5 🥇3 🏆'"""
+        parts = []
+        if self.bronze_unlocked > 0 or self.bronze_total > 0:
+            parts.append(f"🥉{self.bronze_unlocked}")
+        if self.silver_unlocked > 0 or self.silver_total > 0:
+            parts.append(f"🥈{self.silver_unlocked}")
+        if self.gold_unlocked > 0 or self.gold_total > 0:
+            parts.append(f"🥇{self.gold_unlocked}")
+        if self.platinum_total > 0:
+            parts.append("🏆" if self.platinum_unlocked > 0 else "")
+        if parts:
+            return " ".join(p for p in parts if p) + f" ({self.completion_percent}%)"
+        return f"{self.unlocked}/{self.total} trophies ({self.completion_percent}%)"
+
+
+class XboxProgressStats(BaseModel):
+    """Xbox achievement statistics with gamerscore."""
+
+    type: Literal["xbox"] = "xbox"
+    total: int = 0
+    unlocked: int = 0
+
+    # Gamerscore
+    total_gamerscore: int = 0
+    unlocked_gamerscore: int = 0
+
+    achievements: list[XboxAchievement] = Field(default_factory=list)
+    raw_data: dict = Field(default_factory=dict)
+
+    @property
+    def completion_percent(self) -> float:
+        """Calculate completion percentage based on achievement count."""
+        if self.total == 0:
+            return 0.0
+        return round(self.unlocked / self.total * 100, 1)
+
+    @property
+    def gamerscore_percent(self) -> float:
+        """Calculate completion percentage based on gamerscore."""
+        if self.total_gamerscore == 0:
+            return 0.0
+        return round(self.unlocked_gamerscore / self.total_gamerscore * 100, 1)
+
+    @property
+    def display_summary(self) -> str:
+        """Human-readable summary with gamerscore. E.g., '850/1000 GS (85%)'"""
+        if self.total_gamerscore > 0:
+            return f"{self.unlocked_gamerscore}/{self.total_gamerscore} GS ({self.gamerscore_percent}%)"
+        return f"{self.unlocked}/{self.total} achievements ({self.completion_percent}%)"
+
+
+# Discriminated union for progress stats
+ProgressStats = Annotated[
+    SteamProgressStats | PlayStationProgressStats | XboxProgressStats,
+    Field(discriminator="type"),
+]
+
+
+# =============================================================================
+# Legacy Classes (Deprecated - kept for reference during transition)
+# =============================================================================
+
+
 class Achievement(BaseModel):
-    """Represents a game achievement."""
+    """Represents a game achievement. DEPRECATED: Use platform-specific classes."""
 
     api_name: str = Field(description="Internal achievement identifier")
     name: str | None = None  # Display name (if available)
@@ -36,7 +263,7 @@ class Achievement(BaseModel):
 
 
 class AchievementStats(BaseModel):
-    """Achievement statistics for a game."""
+    """Achievement statistics for a game. DEPRECATED: Use platform-specific classes."""
 
     total: int = 0
     unlocked: int = 0
@@ -50,6 +277,11 @@ class AchievementStats(BaseModel):
         return round(self.unlocked / self.total * 100, 1)
 
 
+# =============================================================================
+# Game and Related Models
+# =============================================================================
+
+
 class Game(BaseModel):
     """Represents a game in the user's library."""
 
@@ -60,7 +292,7 @@ class Game(BaseModel):
     last_played: datetime | None = None
 
     # Localized names (key: language code, value: localized name)
-    # e.g., {"en": "The Witcher 3", "schinese": "巫师3"}
+    # e.g., {"en": "The Witcher 3", "zh": "巫师3"}
     localized_names: dict[str, str] = Field(default_factory=dict)
 
     # Metadata (can be enriched later)
@@ -70,12 +302,19 @@ class Game(BaseModel):
     description: str | None = None
     header_image_url: str | None = None
 
-    # Achievement data
-    achievement_stats: AchievementStats | None = None
+    # Platform-specific progress data
+    progress: SteamProgressStats | PlayStationProgressStats | XboxProgressStats | None = None
 
     def get_name(self, language: str = "en") -> str:
         """Get the game name in the specified language, fallback to default name."""
         return self.localized_names.get(language, self.name)
+
+    @property
+    def completion_percent(self) -> float:
+        """Get completion percentage from progress stats."""
+        if self.progress is None:
+            return 0.0
+        return self.progress.completion_percent
 
 
 class PriceInfo(BaseModel):
@@ -96,17 +335,17 @@ class WishlistItem(BaseModel):
     name: str
     added_on: datetime | None = None
     priority: int = 0  # 0 = default, lower = higher priority
-    
+
     # Metadata
     genres: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     release_date: datetime | None = None
     description: str | None = None
     header_image_url: str | None = None
-    
+
     # Price info
     price: PriceInfo | None = None
-    
+
     @property
     def is_on_sale(self) -> bool:
         """Check if the game is currently on sale."""

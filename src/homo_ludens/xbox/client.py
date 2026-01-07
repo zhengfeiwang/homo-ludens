@@ -14,7 +14,14 @@ from datetime import datetime
 
 import httpx
 
-from homo_ludens.models import Achievement, AchievementStats, Game, Platform
+from homo_ludens.models import (
+    Game,
+    Platform,
+    RarityTier,
+    XboxAchievement,
+    XboxProgressStats,
+    percent_to_rarity_tier,
+)
 
 
 OPENXBL_API_BASE = "https://xbl.io/api/v2"
@@ -24,6 +31,23 @@ class XboxAPIError(Exception):
     """Error from Xbox/OpenXBL API."""
 
     pass
+
+
+def _map_xbox_rarity_to_tier(category: str | None) -> RarityTier | None:
+    """Convert Xbox rarity category to our RarityTier enum."""
+    if category is None:
+        return None
+    category_lower = category.lower()
+    if "ultra" in category_lower:
+        return RarityTier.ULTRA_RARE
+    elif "very" in category_lower:
+        return RarityTier.VERY_RARE
+    elif "rare" in category_lower:
+        return RarityTier.RARE
+    elif "uncommon" in category_lower:
+        return RarityTier.UNCOMMON
+    else:
+        return RarityTier.COMMON
 
 
 class XboxClient:
@@ -87,6 +111,84 @@ class XboxClient:
             "display_pic": settings.get("GameDisplayPicRaw"),
         }
 
+    def get_game_achievements(self, title_id: str) -> list[XboxAchievement]:
+        """Fetch detailed achievements for a specific game.
+
+        Args:
+            title_id: Xbox title ID.
+
+        Returns:
+            List of XboxAchievement objects.
+        """
+        try:
+            response = self._http_client.get(
+                f"{OPENXBL_API_BASE}/achievements/title/{title_id}"
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            achievements = []
+            for ach in data.get("achievements", []):
+                # Check if unlocked
+                progress_state = ach.get("progressState", "")
+                achieved = progress_state == "Achieved"
+
+                # Parse unlock time
+                unlock_time = None
+                if achieved:
+                    progression = ach.get("progression", {})
+                    time_str = progression.get("timeUnlocked")
+                    if time_str:
+                        try:
+                            unlock_time = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                        except (ValueError, TypeError):
+                            pass
+
+                # Get gamerscore from rewards
+                gamerscore = 0
+                rewards = ach.get("rewards", [])
+                for reward in rewards:
+                    if reward.get("type") == "Gamerscore":
+                        try:
+                            gamerscore = int(reward.get("value", 0))
+                        except (ValueError, TypeError):
+                            pass
+                        break
+
+                # Get rarity
+                rarity_data = ach.get("rarity", {})
+                rarity_percent = rarity_data.get("currentPercentage")
+                rarity_category = rarity_data.get("currentCategory")
+                rarity_tier = _map_xbox_rarity_to_tier(rarity_category)
+                if rarity_tier is None and rarity_percent is not None:
+                    rarity_tier = percent_to_rarity_tier(rarity_percent)
+
+                # Get icon URL from media assets
+                icon_url = None
+                media_assets = ach.get("mediaAssets", [])
+                for asset in media_assets:
+                    if asset.get("type") == "Icon":
+                        icon_url = asset.get("url")
+                        break
+
+                achievement = XboxAchievement(
+                    achievement_id=str(ach.get("id", "")),
+                    name=ach.get("name"),
+                    description=ach.get("description"),
+                    icon_url=icon_url,
+                    gamerscore=gamerscore,
+                    achieved=achieved,
+                    unlock_time=unlock_time,
+                    rarity_percent=rarity_percent,
+                    rarity_tier=rarity_tier,
+                )
+                achievements.append(achievement)
+
+            return achievements
+
+        except Exception:
+            return []
+
     def get_owned_games(self) -> list[Game]:
         """Fetch all games from user's title history.
 
@@ -128,34 +230,59 @@ class XboxClient:
                     header_image_url=title.get("displayImage"),
                 )
 
-                # Add achievement stats if available
+                # Get achievement summary from title history
                 achievement_data = title.get("achievement", {})
-                if achievement_data:
-                    current_ach = achievement_data.get("currentAchievements", 0)
-                    total_ach = achievement_data.get("totalAchievements", 0)
-                    current_gs = achievement_data.get("currentGamerscore", 0)
-                    total_gs = achievement_data.get("totalGamerscore", 0)
-                    progress_pct = achievement_data.get("progressPercentage", 0)
+                current_ach = achievement_data.get("currentAchievements", 0)
+                total_ach = achievement_data.get("totalAchievements", 0)
+                current_gs = achievement_data.get("currentGamerscore", 0)
+                total_gs = achievement_data.get("totalGamerscore", 0)
+                progress_pct = achievement_data.get("progressPercentage", 0)
 
-                    # OpenXBL often returns totalAchievements=0 but has gamerscore and progress data
-                    # Use progressPercentage to determine the correct total
-                    if total_ach == 0 and current_ach > 0:
-                        if progress_pct == 100:
-                            # 100% completion means current = total
-                            total_ach = current_ach
-                        elif progress_pct > 0:
-                            # Calculate total from percentage: if 18% = 9 achievements, total = 50
-                            total_ach = max(int(current_ach * 100 / progress_pct), current_ach)
-                        elif total_gs > 0:
-                            # Fallback: estimate from gamerscore (roughly 20 GS per achievement)
-                            total_ach = max(total_gs // 20, current_ach)
-                    
-                    if total_ach > 0 or current_ach > 0:
-                        game.achievement_stats = AchievementStats(
-                            total=max(total_ach, current_ach),  # Ensure total >= current
-                            unlocked=current_ach,
-                            achievements=[],
-                        )
+                # Store raw data for debugging
+                raw_data = {
+                    "title_history": title,
+                    "achievement_summary": achievement_data,
+                }
+
+                # OpenXBL often returns totalAchievements=0 but has gamerscore and progress data
+                # Use progressPercentage to determine the correct total
+                if total_ach == 0 and current_ach > 0:
+                    if progress_pct == 100:
+                        # 100% completion means current = total
+                        total_ach = current_ach
+                    elif progress_pct > 0:
+                        # Calculate total from percentage
+                        total_ach = max(int(current_ach * 100 / progress_pct), current_ach)
+                    elif total_gs > 0:
+                        # Fallback: estimate from gamerscore (roughly 20 GS per achievement)
+                        total_ach = max(total_gs // 20, current_ach)
+
+                # Fetch individual achievements for this game
+                achievements = []
+                if current_ach > 0 or total_ach > 0:
+                    achievements = self.get_game_achievements(title_id)
+                    raw_data["achievements_detail"] = [
+                        {"id": a.achievement_id, "name": a.name, "gs": a.gamerscore, "achieved": a.achieved}
+                        for a in achievements
+                    ]
+
+                    # If we got detailed achievements, use their counts
+                    if achievements:
+                        total_ach = len(achievements)
+                        current_ach = len([a for a in achievements if a.achieved])
+                        # Recalculate gamerscore from actual achievements
+                        total_gs = sum(a.gamerscore for a in achievements)
+                        current_gs = sum(a.gamerscore for a in achievements if a.achieved)
+
+                if total_ach > 0 or current_ach > 0:
+                    game.progress = XboxProgressStats(
+                        total=max(total_ach, current_ach),
+                        unlocked=current_ach,
+                        total_gamerscore=total_gs,
+                        unlocked_gamerscore=current_gs,
+                        achievements=achievements,
+                        raw_data=raw_data,
+                    )
 
                 games.append(game)
 
@@ -165,77 +292,6 @@ class XboxClient:
             raise XboxAPIError(f"Failed to fetch Xbox games: {e}")
 
         return games
-
-    def get_achievements(self) -> list[dict]:
-        """Fetch all achievements across all games.
-
-        Returns:
-            List of achievement data dicts.
-        """
-        try:
-            response = self._http_client.get(f"{OPENXBL_API_BASE}/achievements")
-            response.raise_for_status()
-            data = response.json()
-            return data.get("titles", [])
-        except Exception as e:
-            raise XboxAPIError(f"Failed to fetch achievements: {e}")
-
-    def get_game_achievements(self, title_id: str) -> AchievementStats | None:
-        """Fetch detailed achievements for a specific game.
-
-        Args:
-            title_id: Xbox title ID.
-
-        Returns:
-            AchievementStats with individual achievements, or None if not found.
-        """
-        try:
-            response = self._http_client.get(
-                f"{OPENXBL_API_BASE}/achievements/title/{title_id}"
-            )
-            response.raise_for_status()
-            data = response.json()
-
-            achievements_data = data.get("achievements", [])
-            if not achievements_data:
-                return None
-
-            achievements = []
-            for ach in achievements_data:
-                # Check if unlocked
-                progress = ach.get("progressState", "")
-                achieved = progress == "Achieved"
-                
-                # Parse unlock time
-                unlock_time = None
-                if achieved and ach.get("progression", {}).get("timeUnlocked"):
-                    try:
-                        time_str = ach["progression"]["timeUnlocked"]
-                        unlock_time = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
-                    except (ValueError, TypeError):
-                        pass
-
-                achievement = Achievement(
-                    api_name=str(ach.get("id", "")),
-                    name=ach.get("name"),
-                    description=ach.get("description"),
-                    achieved=achieved,
-                    unlock_time=unlock_time,
-                    global_percent=None,
-                )
-                achievements.append(achievement)
-
-            total = len(achievements)
-            unlocked = len([a for a in achievements if a.achieved])
-
-            return AchievementStats(
-                total=total,
-                unlocked=unlocked,
-                achievements=achievements,
-            )
-
-        except Exception:
-            return None
 
     def get_recently_played(self, limit: int = 10) -> list[Game]:
         """Fetch recently played games.

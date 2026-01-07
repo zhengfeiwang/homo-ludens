@@ -67,7 +67,7 @@ def _refresh_library(console: Console, storage: Storage, min_playtime: int = DEF
         
         games_with_achievements = [
             g for g in games 
-            if g.achievement_stats and g.achievement_stats.total > 0
+            if g.progress and g.progress.total > 0
         ]
         on_sale = [item for item in wishlist_items if item.is_on_sale]
         
@@ -105,7 +105,7 @@ def _show_status(console: Console, profile):
         played = len([g for g in profile.games if g.playtime_minutes > 0])
         games_with_ach = len([
             g for g in profile.games 
-            if g.achievement_stats and g.achievement_stats.total > 0
+            if g.progress and g.progress.total > 0
         ])
         
         console.print(f"  Playtime: {total_playtime // 60} hours")
@@ -153,11 +153,11 @@ def _show_platform_details(console: Console, profile, steam: bool = False, psn: 
             console.print("[dim]Playtime: not available from Xbox API[/dim]")
         
         # Achievement/trophy stats
-        games_with_ach = [g for g in games if g.achievement_stats and g.achievement_stats.total > 0]
+        games_with_ach = [g for g in games if g.progress and g.progress.total > 0]
         if games_with_ach:
-            total_ach = sum(g.achievement_stats.total for g in games_with_ach if g.achievement_stats)
-            unlocked_ach = sum(g.achievement_stats.unlocked for g in games_with_ach if g.achievement_stats)
-            completed = [g for g in games_with_ach if g.achievement_stats and g.achievement_stats.completion_percent == 100]
+            total_ach = sum(g.progress.total for g in games_with_ach if g.progress)
+            unlocked_ach = sum(g.progress.unlocked for g in games_with_ach if g.progress)
+            completed = [g for g in games_with_ach if g.progress and g.progress.completion_percent == 100]
             
             console.print(f"\n[bold]{ach_word.title()}:[/bold]")
             console.print(f"  Games with {ach_word}: {len(games_with_ach)}")
@@ -171,23 +171,23 @@ def _show_platform_details(console: Console, profile, steam: bool = False, psn: 
             for i, game in enumerate(top_played, 1):
                 hours = game.playtime_minutes // 60
                 ach_str = ""
-                if game.achievement_stats and game.achievement_stats.total > 0:
-                    ach_str = f" ({game.achievement_stats.completion_percent}% {ach_word})"
+                if game.progress and game.progress.total > 0:
+                    ach_str = f" ({game.progress.completion_percent}% {ach_word})"
                 console.print(f"  {i}. {game.name} - {hours}h{ach_str}")
         
         # Highest achievement completion
         if games_with_ach:
             top_completion = sorted(
                 games_with_ach, 
-                key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+                key=lambda g: g.progress.completion_percent if g.progress else 0, 
                 reverse=True
             )[:5]
             console.print(f"\n[bold]Highest {ach_word.title()} Completion:[/bold]")
             for i, game in enumerate(top_completion, 1):
-                if game.achievement_stats:
+                if game.progress:
                     console.print(
-                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
-                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total})"
+                        f"  {i}. {game.name} - {game.progress.completion_percent}% "
+                        f"({game.progress.unlocked}/{game.progress.total})"
                     )
         
         # Recently played (if available)
@@ -252,7 +252,7 @@ def sync(
             # Count games with achievements
             games_with_achievements = [
                 g for g in games 
-                if g.achievement_stats and g.achievement_stats.total > 0
+                if g.progress and g.progress.total > 0
             ]
             console.print(
                 f"[green]Fetched achievements for {len(games_with_achievements)} games.[/green]"
@@ -300,8 +300,8 @@ def sync(
             for i, game in enumerate(top_games, 1):
                 hours = game.playtime_minutes // 60
                 ach_str = ""
-                if game.achievement_stats and game.achievement_stats.total > 0:
-                    ach_str = f" - {game.achievement_stats.completion_percent}% achievements"
+                if game.progress and game.progress.total > 0:
+                    ach_str = f" - {game.progress.completion_percent}% achievements"
                 console.print(f"  {i}. {game.name} ({hours}h){ach_str}")
 
     except SteamAPIError as e:
@@ -344,20 +344,20 @@ def sync_psn():
         # Show games with highest trophy completion
         games_with_trophies = [
             g for g in games 
-            if g.achievement_stats and g.achievement_stats.total > 0
+            if g.progress and g.progress.total > 0
         ]
         games_with_trophies.sort(
-            key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+            key=lambda g: g.progress.completion_percent if g.progress else 0, 
             reverse=True
         )
 
         if games_with_trophies:
             console.print("\n[bold]Your top trophy games:[/bold]")
             for i, game in enumerate(games_with_trophies[:5], 1):
-                if game.achievement_stats:
+                if game.progress:
                     console.print(
-                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
-                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total} trophies)"
+                        f"  {i}. {game.name} - {game.progress.completion_percent}% "
+                        f"({game.progress.unlocked}/{game.progress.total} trophies)"
                     )
 
     except PSNAPIError as e:
@@ -400,20 +400,20 @@ def sync_xbox():
         # Show games with highest achievement completion
         games_with_achievements = [
             g for g in games 
-            if g.achievement_stats and g.achievement_stats.total > 0
+            if g.progress and g.progress.total > 0
         ]
         games_with_achievements.sort(
-            key=lambda g: g.achievement_stats.completion_percent if g.achievement_stats else 0, 
+            key=lambda g: g.progress.completion_percent if g.progress else 0, 
             reverse=True
         )
 
         if games_with_achievements:
             console.print("\n[bold]Your top achievement games:[/bold]")
             for i, game in enumerate(games_with_achievements[:5], 1):
-                if game.achievement_stats:
+                if game.progress:
                     console.print(
-                        f"  {i}. {game.name} - {game.achievement_stats.completion_percent}% "
-                        f"({game.achievement_stats.unlocked}/{game.achievement_stats.total} achievements)"
+                        f"  {i}. {game.name} - {game.progress.completion_percent}% "
+                        f"({game.progress.unlocked}/{game.progress.total} achievements)"
                     )
 
     except XboxAPIError as e:

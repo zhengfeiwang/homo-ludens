@@ -27,11 +27,20 @@ class Storage:
         self.conversations_dir.mkdir(parents=True, exist_ok=True)
 
     def load_profile(self) -> UserProfile:
-        """Load user profile from disk, or create a new one."""
+        """Load user profile from disk, or create a new one.
+        
+        If the profile schema has changed (e.g., achievement_stats -> progress),
+        returns an empty profile. User will need to re-sync.
+        """
         if self.profile_path.exists():
-            with open(self.profile_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                return UserProfile.model_validate(data)
+            try:
+                with open(self.profile_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    return UserProfile.model_validate(data)
+            except Exception:
+                # Schema changed or corrupted file, return empty profile
+                # User will need to re-sync their library
+                return UserProfile()
         return UserProfile()
 
     def save_profile(self, profile: UserProfile) -> None:
